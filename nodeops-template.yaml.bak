@@ -1,7 +1,7 @@
 version: '0.1'
 services:
   defi-trading-copilot:
-    image: escion333/defi-trading-copilot:latest
+    image: YOUR_DOCKERHUB_USERNAME/defi-trading-copilot:latest
     imagePullPolicy: "Always"
     command: "nginx"
     args:

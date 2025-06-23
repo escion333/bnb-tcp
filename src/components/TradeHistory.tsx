@@ -32,9 +32,35 @@ export function TradeHistory() {
     setError(null)
     
     try {
-      // TEMPORARILY DISABLED - Database schema mismatch
-      console.log('📊 Trade history temporarily disabled due to database schema issues')
-      setTrades([]) // Empty array instead of fetching from database
+      // Load trades from localStorage instead of disabled database
+      console.log('📊 Loading trades from localStorage...')
+      const localTrades = JSON.parse(localStorage.getItem('localTrades') || '[]')
+      
+      // Convert to SavedTrade format and filter by current wallet
+      const userTrades = localTrades
+        .filter((trade: any) => trade.id.startsWith(address))
+        .map((trade: any): SavedTrade => ({
+          id: trade.id,
+          userId: address,
+          walletAddress: address,
+          symbol: trade.symbol,
+          status: trade.status,
+          entryPrice: trade.entryPrice,
+          currentPrice: trade.currentPrice,
+          takeProfitPrice: trade.takeProfitPrice,
+          stopLossPrice: trade.stopLossPrice,
+          confidence: trade.confidence,
+          reasoning: trade.reasoning,
+          timeframe: '2-4 hours', // Default timeframe
+          riskReward: ((trade.takeProfitPrice - trade.entryPrice) / (trade.entryPrice - trade.stopLossPrice)) || 1.5,
+          timestamp: trade.createdAt,
+          createdAt: trade.createdAt,
+          updatedAt: trade.createdAt,
+          entryTxHash: trade.txHash
+        }))
+      
+      setTrades(userTrades)
+      console.log(`📊 Loaded ${userTrades.length} trades from localStorage`)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load trades')
     } finally {
@@ -46,16 +72,23 @@ export function TradeHistory() {
     if (!address) return
     
     try {
-      // TEMPORARILY DISABLED - Database schema mismatch  
-      console.log('📈 Trade stats temporarily disabled due to database schema issues')
-      setStats({
-        total: 0,
-        executed: 0,
-        monitoring: 0,
-        ignored: 0,
-        avgConfidence: 7.5,
-        totalPnl: 0
-      })
+      // Calculate stats from localStorage trades
+      const localTrades = JSON.parse(localStorage.getItem('localTrades') || '[]')
+      const userTrades = localTrades.filter((trade: any) => trade.id.startsWith(address))
+      
+      const stats = {
+        total: userTrades.length,
+        executed: userTrades.filter((t: any) => t.status === 'executed').length,
+        monitoring: userTrades.filter((t: any) => t.status === 'monitoring').length,
+        ignored: userTrades.filter((t: any) => t.status === 'ignored').length,
+        avgConfidence: userTrades.length > 0 
+          ? userTrades.reduce((sum: number, t: any) => sum + t.confidence, 0) / userTrades.length 
+          : 0,
+        totalPnl: 0 // Will be calculated when trades close
+      }
+      
+      setStats(stats)
+      console.log('📈 Calculated stats from localStorage:', stats)
     } catch (err) {
       console.error('Failed to load stats:', err)
     }

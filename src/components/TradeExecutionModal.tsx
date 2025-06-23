@@ -39,6 +39,27 @@ interface ExecutionState {
   }
 }
 
+// Add this interface for local trade storage
+interface LocalTrade {
+  id: string
+  txHash: string
+  symbol: string
+  status: 'executed' | 'monitoring'
+  entryPrice: number
+  currentPrice: number
+  takeProfitPrice: number
+  stopLossPrice: number
+  confidence: number
+  reasoning: string
+  createdAt: string
+  amountIn: string
+  amountOut: string
+  automationTaskIds?: {
+    takeProfitTaskId: string
+    stopLossTaskId: string
+  }
+}
+
 export function TradeExecutionModal({ 
   isOpen, 
   onClose, 
@@ -56,8 +77,8 @@ export function TradeExecutionModal({
   })
 
   // Define the tokens we're trading (consistent across the component)
-  const tokenIn = TOKENS.USDT // Assume we're buying WBNB with USDT
-  const tokenOut = TOKENS.WBNB // Use WBNB to access main liquidity pool
+  const tokenIn = TOKENS.NATIVE_BNB // Swap BNB for USDT (you have BNB!)
+  const tokenOut = TOKENS.USDT // Get USDT output
 
   // Reset state when modal opens/closes or trade idea changes
   useEffect(() => {
@@ -80,15 +101,15 @@ export function TradeExecutionModal({
     setState(prev => ({ ...prev, isLoading: true, error: null }))
 
     try {
-      const amountIn = '100' // Default $100 USDT trade size
+      const amountIn = '0.01' // Default 0.01 BNB trade size (~$6-7)
 
       const swapParams: SwapParams = {
         tokenIn,
         tokenOut,
         amountIn,
-        slippageTolerance: 0.5, // 0.5% slippage
+        slippageTolerance: 2.0, // 2.0% slippage for mainnet reliability
         recipient: address,
-        useNativeBNB: false // Use WBNB to access main liquidity pool
+        useNativeBNB: true // Use native BNB (no approval needed!)
       }
 
       // Get quote
@@ -119,7 +140,7 @@ export function TradeExecutionModal({
     setState(prev => ({ ...prev, step: 'approval', isLoading: true, error: null }))
 
     try {
-      const amountIn = '100'
+      const amountIn = '0.01'
 
       await approveToken(tokenIn, amountIn)
       
@@ -162,10 +183,10 @@ export function TradeExecutionModal({
       const swapParams: SwapParams = {
         tokenIn,
         tokenOut,
-        amountIn: '100',
-        slippageTolerance: 0.5,
+        amountIn: '0.01',
+                  slippageTolerance: 2.0,
         recipient: address,
-        useNativeBNB: false
+        useNativeBNB: true
       }
 
       console.log('📡 Calling executeSwap with params:', swapParams)
@@ -213,7 +234,7 @@ export function TradeExecutionModal({
         takeProfitPrice: tradeIdea.takeProfitPrice,
         stopLossPrice: tradeIdea.stopLossPrice,
         tradeAmount: parseFloat(state.quote.amountOut), // Amount of WBNB received
-        slippageTolerance: 0.5 // 0.5% slippage tolerance
+        slippageTolerance: 2.0 // 2.0% slippage tolerance for mainnet
       }
 
       const automationTaskIds = await supraAutomation.registerTradeAutomation(automationParams)
@@ -221,6 +242,9 @@ export function TradeExecutionModal({
       console.log('🎉 Supra Automation registered successfully!')
       console.log(`   Take Profit Task: ${automationTaskIds.takeProfitTaskId}`)
       console.log(`   Stop Loss Task: ${automationTaskIds.stopLossTaskId}`)
+
+      // Save trade to localStorage for dashboard display
+      saveTradeToLocalStorage(_txHash, automationTaskIds)
 
       setState(prev => ({
         ...prev,
@@ -232,6 +256,9 @@ export function TradeExecutionModal({
     } catch (error) {
       console.error('❌ Failed to register automation:', error)
       
+      // Save trade to localStorage even if automation fails
+      saveTradeToLocalStorage(_txHash)
+
       // Don't fail the entire trade if automation fails
       setState(prev => ({
         ...prev,
@@ -252,6 +279,40 @@ export function TradeExecutionModal({
       needsApproval: false
     })
     onClose()
+  }
+
+  // Add function to save trade to localStorage
+  const saveTradeToLocalStorage = (txHash: string, automationTaskIds?: { takeProfitTaskId: string; stopLossTaskId: string }) => {
+    if (!tradeIdea || !address || !state.quote) return
+
+    const trade: LocalTrade = {
+      id: `${address}_${Date.now()}`,
+      txHash,
+      symbol: 'WBNB/USDT',
+      status: automationTaskIds ? 'monitoring' : 'executed',
+      entryPrice: tradeIdea.entryPrice,
+      currentPrice: tradeIdea.entryPrice,
+      takeProfitPrice: tradeIdea.takeProfitPrice,
+      stopLossPrice: tradeIdea.stopLossPrice,
+      confidence: tradeIdea.confidence,
+      reasoning: tradeIdea.reasoning,
+      createdAt: new Date().toISOString(),
+      amountIn: '0.01', // 0.01 BNB
+      amountOut: state.quote.amountOut,
+      automationTaskIds
+    }
+
+    // Get existing trades
+    const existingTrades = JSON.parse(localStorage.getItem('localTrades') || '[]')
+    existingTrades.unshift(trade) // Add to beginning
+    
+    // Keep only last 50 trades
+    if (existingTrades.length > 50) {
+      existingTrades.splice(50)
+    }
+    
+    localStorage.setItem('localTrades', JSON.stringify(existingTrades))
+    console.log('💾 Trade saved to localStorage:', trade.id)
   }
 
   if (!tradeIdea) return null

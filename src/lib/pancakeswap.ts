@@ -153,6 +153,14 @@ export async function checkTokenApproval(
   amountNeeded: string
 ): Promise<{ needsApproval: boolean; currentAllowance: string }> {
   try {
+    // Native BNB doesn't need approval
+    if (tokenAddress === TOKENS.NATIVE_BNB) {
+      return {
+        needsApproval: false,
+        currentAllowance: 'unlimited' // Native BNB doesn't have allowance concept
+      }
+    }
+
     const allowance = await readContract(config, {
       address: tokenAddress,
       abi: erc20Abi,
@@ -199,7 +207,8 @@ export async function approveToken(
       address: tokenAddress,
       abi: erc20Abi,
       functionName: 'approve',
-      args: [PANCAKESWAP_ROUTER_ADDRESS, amountWei]
+      args: [PANCAKESWAP_ROUTER_ADDRESS, amountWei],
+      gas: 50000n // Fixed gas limit for approvals
     })
 
     return hash
@@ -337,7 +346,8 @@ export async function executeSwap(params: SwapParams): Promise<Address> {
         abi: PANCAKESWAP_ROUTER_ABI,
         functionName: 'swapExactETHForTokens',
         args: [amountOutMinWei, route, recipient, BigInt(swapDeadline)],
-        value: amountInWei
+        value: amountInWei,
+        gas: 180000n // Fixed gas limit for BNB swaps
       })
     } else if (!isNativeBNBIn && isNativeBNBOut) {
       // Swapping tokens for native BNB
@@ -345,7 +355,8 @@ export async function executeSwap(params: SwapParams): Promise<Address> {
         address: PANCAKESWAP_ROUTER_ADDRESS,
         abi: PANCAKESWAP_ROUTER_ABI,
         functionName: 'swapExactTokensForETH',
-        args: [amountInWei, amountOutMinWei, route, recipient, BigInt(swapDeadline)]
+        args: [amountInWei, amountOutMinWei, route, recipient, BigInt(swapDeadline)],
+        gas: 180000n // Fixed gas limit for token swaps
       })
     } else {
       // Swapping tokens for tokens (including WBNB <-> tokens)
@@ -353,7 +364,8 @@ export async function executeSwap(params: SwapParams): Promise<Address> {
         address: PANCAKESWAP_ROUTER_ADDRESS,
         abi: PANCAKESWAP_ROUTER_ABI,
         functionName: 'swapExactTokensForTokens',
-        args: [amountInWei, amountOutMinWei, route, recipient, BigInt(swapDeadline)]
+        args: [amountInWei, amountOutMinWei, route, recipient, BigInt(swapDeadline)],
+        gas: 200000n // Fixed gas limit for token-to-token swaps
       })
     }
 
