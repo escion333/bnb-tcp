@@ -1,6 +1,13 @@
 # Multi-stage build for React/Vite app
 # Stage 1: Build the application
-FROM node:20-slim AS builder
+FROM node:20 AS builder
+
+# Install system dependencies needed for node-gyp and native modules
+RUN apt-get update && apt-get install -y \
+    python3 \
+    make \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
 
 # Create app directory
 WORKDIR /usr/src/app

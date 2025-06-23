@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { supraAutomation, type TradeAutomationParams } from '../lib/supra-automation'
-import { Button, Card, LoadingSpinner } from './ui'
+import { Button, LoadingSpinner, Card, CardHeader, CardTitle, CardDescription, CardContent } from './ui'
 import { Bot, CheckCircle, AlertCircle } from 'lucide-react'
 
 interface TestResult {
@@ -110,7 +110,12 @@ export function TestSupraAutomation() {
   }
 
   return (
-    <Card title="🧪 Supra Automation Test Lab" subtitle="Test automation integration in browser context">
+    <Card>
+      <CardHeader>
+        <CardTitle>🧪 Supra Automation Test Lab</CardTitle>
+        <CardDescription>Test automation integration in browser context</CardDescription>
+      </CardHeader>
+      <CardContent>
       <div className="space-y-6">
         
         {/* Test Controls */}
@@ -205,6 +210,7 @@ export function TestSupraAutomation() {
           </div>
         </div>
       </div>
+      </CardContent>
     </Card>
   )
 } 

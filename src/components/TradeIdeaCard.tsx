@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { TrendingUp, TrendingDown, Brain, Clock, Target, Shield, AlertTriangle } from 'lucide-react'
-import { Card, Button, LoadingSpinner, useToast } from './ui'
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, Button, LoadingSpinner, useToast } from './ui'
 import { TradeExecutionModal } from './TradeExecutionModal'
 import type { TradeIdea } from '../lib/openai'
 
@@ -98,7 +98,12 @@ export function TradeIdeaCard({ tradeIdea, isLoading, onGenerate, onAction }: Tr
   }
 
   return (
-    <Card title="🤖 AI Trade Copilot" subtitle="AI-powered trade recommendations">
+    <Card>
+      <CardHeader>
+        <CardTitle>🤖 AI Trade Copilot</CardTitle>
+        <CardDescription>AI-powered trade recommendations</CardDescription>
+      </CardHeader>
+      <CardContent>
       {!tradeIdea && !isLoading && (
         <div className="text-center py-8">
           <Brain className="mx-auto mb-4 text-purple-400" size={48} />
@@ -257,6 +262,7 @@ export function TradeIdeaCard({ tradeIdea, isLoading, onGenerate, onAction }: Tr
         tradeIdea={tradeIdea}
         onTradeExecuted={handleTradeExecuted}
       />
+      </CardContent>
     </Card>
   )
 } 

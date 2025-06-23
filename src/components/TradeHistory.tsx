@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useAccount } from 'wagmi'
 import { History, TrendingUp, Brain, Clock, Target, Eye, X } from 'lucide-react'
-import { Card, Button, LoadingSpinner } from './ui'
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, Button, LoadingSpinner } from './ui'
 import { type SavedTrade } from '../lib/trades'
 
 export function TradeHistory() {
@@ -147,17 +147,28 @@ export function TradeHistory() {
 
   if (!isConnected) {
     return (
-      <Card title="📊 Trade History" subtitle="Your AI trading recommendations">
-        <div className="text-center py-8">
-          <History className="mx-auto mb-4 text-gray-400" size={48} />
-          <p className="text-gray-400">Connect your wallet to view trade history</p>
-        </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>📊 Trade History</CardTitle>
+          <CardDescription>Your AI trading recommendations</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-8">
+            <History className="mx-auto mb-4 text-gray-400" size={48} />
+            <p className="text-gray-400">Connect your wallet to view trade history</p>
+          </div>
+        </CardContent>
       </Card>
     )
   }
 
   return (
-    <Card title="📊 Trade History" subtitle="Your AI trading recommendations">
+    <Card>
+      <CardHeader>
+        <CardTitle>📊 Trade History</CardTitle>
+        <CardDescription>Your AI trading recommendations</CardDescription>
+      </CardHeader>
+      <CardContent>
       {/* Stats Summary */}
       {stats && (
         <div className="mb-6">
@@ -361,6 +372,7 @@ export function TradeHistory() {
           )}
         </div>
       )}
+      </CardContent>
     </Card>
   )
 } 
