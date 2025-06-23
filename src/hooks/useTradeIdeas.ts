@@ -18,12 +18,13 @@ export function useTradeIdeas(walletAddress?: string) {
       const idea = await generateTradeIdea(symbol, currentPrice)
       setCurrentIdea(idea)
 
-      // TEMPORARILY DISABLED - Database schema mismatch
+      // Save to localStorage instead of database for now
       if (walletAddress) {
-        console.log('💾 Database saving temporarily disabled due to schema mismatch')
-        // Create a mock saved trade for testing
-        const mockSavedTrade: any = {
-          id: 'mock-' + Date.now(),
+        console.log('💾 Saving trade to localStorage...')
+        
+        // Create saved trade object
+        const savedTrade: any = {
+          id: walletAddress + '-' + Date.now(),
           ...idea,
           userId: walletAddress,
           walletAddress: walletAddress,
@@ -31,10 +32,21 @@ export function useTradeIdeas(walletAddress?: string) {
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
         }
-        setCurrentSavedTrade(mockSavedTrade)
-        console.log('✅ Mock trade created for testing:', mockSavedTrade.id)
+        
+        // Get existing trades from localStorage
+        const existingTrades = JSON.parse(localStorage.getItem('localTrades') || '[]')
+        
+        // Add new trade to the beginning
+        const updatedTrades = [savedTrade, ...existingTrades]
+        
+        // Save back to localStorage
+        localStorage.setItem('localTrades', JSON.stringify(updatedTrades))
+        
+        setCurrentSavedTrade(savedTrade)
+        console.log('✅ Trade saved to localStorage:', savedTrade.id)
+        console.log('📊 Total trades in localStorage:', updatedTrades.length)
       } else {
-        console.log('⚠️ No wallet address - cannot save to database')
+        console.log('⚠️ No wallet address - cannot save trade')
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to generate trade idea')
@@ -54,27 +66,35 @@ export function useTradeIdeas(walletAddress?: string) {
 
     const savedTrade = currentSavedTrade
     if (!savedTrade) {
-      throw new Error('Trade not saved to database')
+      throw new Error('Trade not saved')
     }
 
     try {
-      // TEMPORARILY DISABLED - Mock database updates for testing
-      console.log(`🎭 Mock ${action} action on trade:`, savedTrade.id)
+      console.log(`🎯 Processing ${action} action on trade:`, savedTrade.id)
       
+      // Update the trade status
       const updatedTrade = {
         ...savedTrade,
         status: action === 'ignore' ? 'ignored' as const : action === 'monitor' ? 'monitoring' as const : 'executed' as const,
-        updatedAt: new Date().toISOString()
+        updatedAt: new Date().toISOString(),
+        executedAt: action === 'execute' ? new Date().toISOString() : savedTrade.executedAt
       }
+
+      // Update localStorage
+      const existingTrades = JSON.parse(localStorage.getItem('localTrades') || '[]')
+      const updatedTrades = existingTrades.map((trade: any) => 
+        trade.id === savedTrade.id ? updatedTrade : trade
+      )
+      localStorage.setItem('localTrades', JSON.stringify(updatedTrades))
 
       setCurrentSavedTrade(updatedTrade)
       
       if (action === 'ignore') {
-        setCurrentIdea(null) // Clear the idea
+        setCurrentIdea(null) // Clear the idea from UI
         setCurrentSavedTrade(null)
       }
 
-      console.log(`✅ Mock trade ${action} action completed:`, updatedTrade.id)
+      console.log(`✅ Trade ${action} action completed and saved to localStorage:`, updatedTrade.id)
     } catch (err) {
       console.error(`❌ Failed to ${action} trade:`, err)
       throw err

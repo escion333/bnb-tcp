@@ -160,22 +160,41 @@ export function TradeHistory() {
     <Card title="📊 Trade History" subtitle="Your AI trading recommendations">
       {/* Stats Summary */}
       {stats && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-gray-900 rounded-lg p-3 text-center">
-            <div className="text-lg font-semibold text-white">{stats.total}</div>
-            <div className="text-xs text-gray-400">Total Ideas</div>
+        <div className="mb-6">
+          {/* Real vs Mock Trade Breakdown */}
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <div className="bg-green-950 border border-green-500 rounded-lg p-3 text-center">
+              <div className="text-lg font-bold text-green-300">
+                {trades.filter(t => t.entryTxHash && !t.entryTxHash.includes('mock') && t.entryTxHash.length > 20).length}
+              </div>
+              <div className="text-xs text-green-200">🔥 Live Trades</div>
+            </div>
+            <div className="bg-blue-950 border border-blue-500 rounded-lg p-3 text-center">
+              <div className="text-lg font-bold text-blue-300">
+                {trades.filter(t => t.id.includes('mock') || (t.entryTxHash && t.entryTxHash.includes('mock'))).length}
+              </div>
+              <div className="text-xs text-blue-200">📝 Paper Trades</div>
+            </div>
           </div>
-          <div className="bg-gray-900 rounded-lg p-3 text-center">
-            <div className="text-lg font-semibold text-green-400">{stats.executed}</div>
-            <div className="text-xs text-gray-400">Executed</div>
-          </div>
-          <div className="bg-gray-900 rounded-lg p-3 text-center">
-            <div className="text-lg font-semibold text-yellow-400">{stats.monitoring}</div>
-            <div className="text-xs text-gray-400">Monitoring</div>
-          </div>
-          <div className="bg-gray-900 rounded-lg p-3 text-center">
-            <div className="text-lg font-semibold text-purple-400">{stats.avgConfidence}/10</div>
-            <div className="text-xs text-gray-400">Avg Confidence</div>
+
+          {/* Traditional Stats */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="bg-gray-900 rounded-lg p-3 text-center">
+              <div className="text-lg font-semibold text-white">{stats.total}</div>
+              <div className="text-xs text-gray-400">Total Ideas</div>
+            </div>
+            <div className="bg-gray-900 rounded-lg p-3 text-center">
+              <div className="text-lg font-semibold text-green-400">{stats.executed}</div>
+              <div className="text-xs text-gray-400">Executed</div>
+            </div>
+            <div className="bg-gray-900 rounded-lg p-3 text-center">
+              <div className="text-lg font-semibold text-yellow-400">{stats.monitoring}</div>
+              <div className="text-xs text-gray-400">Monitoring</div>
+            </div>
+            <div className="bg-gray-900 rounded-lg p-3 text-center">
+              <div className="text-lg font-semibold text-purple-400">{stats.avgConfidence}/10</div>
+              <div className="text-xs text-gray-400">Avg Confidence</div>
+            </div>
           </div>
         </div>
       )}
@@ -210,7 +229,7 @@ export function TradeHistory() {
       {error && (
         <div className="text-center py-8">
           <div className="text-red-400 mb-4">❌ {error}</div>
-          <Button onClick={loadTrades} variant="primary" size="sm">
+          <Button onClick={loadTrades} variant="default" size="sm">
             Retry
           </Button>
         </div>
@@ -228,74 +247,110 @@ export function TradeHistory() {
       {/* Trade List */}
       {trades.length > 0 && (
         <div className="space-y-3">
-          {trades.map((trade) => (
-            <div key={trade.id} className="bg-gray-900 rounded-lg p-4 border border-gray-700">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-3">
-                  <div className="text-white font-semibold">{trade.symbol}</div>
-                  <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(trade.status)}`}>
-                    {getStatusIcon(trade.status)}
-                    {trade.status.charAt(0).toUpperCase() + trade.status.slice(1)}
+          {trades.map((trade) => {
+            // Determine if this is a real trade (has real tx hash) or mock trade
+            const isRealTrade = trade.entryTxHash && !trade.entryTxHash.includes('mock') && trade.entryTxHash.length > 20
+            const isMockTrade = trade.id.includes('mock') || (trade.entryTxHash && trade.entryTxHash.includes('mock'))
+            
+            return (
+              <div key={trade.id} className={`rounded-lg p-4 border ${
+                isRealTrade 
+                  ? 'bg-green-950 border-green-500 shadow-green-500/20 shadow-lg' 
+                  : isMockTrade 
+                    ? 'bg-gray-900 border-gray-700 opacity-75' 
+                    : 'bg-gray-900 border-gray-700'
+              }`}>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    {/* Real Trade Indicator */}
+                    {isRealTrade && (
+                      <div className="bg-green-600 text-green-100 px-2 py-1 rounded-full text-xs font-bold flex items-center gap-1">
+                        🔥 LIVE TRADE
+                      </div>
+                    )}
+                    
+                    {/* Mock Trade Indicator */}
+                    {isMockTrade && (
+                      <div className="bg-blue-600 text-blue-100 px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1">
+                        📝 PAPER TRADE
+                      </div>
+                    )}
+                    
+                    <div className="text-white font-semibold">{trade.symbol}</div>
+                    <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(trade.status)}`}>
+                      {getStatusIcon(trade.status)}
+                      {trade.status.charAt(0).toUpperCase() + trade.status.slice(1)}
+                    </div>
+                  </div>
+                  <div className="text-xs text-gray-400">
+                    {formatTimeAgo(trade.createdAt)}
                   </div>
                 </div>
-                <div className="text-xs text-gray-400">
-                  {formatTimeAgo(trade.createdAt)}
-                </div>
-              </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-3">
-                <div className="text-sm">
-                  <span className="text-gray-400">Current:</span>
-                  <div className="text-white font-medium">{formatPrice(trade.currentPrice)}</div>
-                </div>
-                <div className="text-sm">
-                  <span className="text-gray-400">Entry:</span>
-                  <div className="text-blue-400 font-medium">{formatPrice(trade.entryPrice)}</div>
-                </div>
-                <div className="text-sm">
-                  <span className="text-gray-400">Take Profit:</span>
-                  <div className="text-green-400 font-medium">
-                    {formatPrice(trade.takeProfitPrice)}
-                    <span className="text-xs ml-1">
-                      ({formatPercent(trade.entryPrice, trade.takeProfitPrice)})
-                    </span>
+                {/* Real Trade Details */}
+                {isRealTrade && (
+                  <div className="mb-3 p-3 bg-green-900/30 rounded-lg border border-green-500/30">
+                    <div className="text-xs text-green-300 font-medium mb-1">🚀 ACTIVE BLOCKCHAIN TRADE</div>
+                    <div className="text-xs text-green-200">
+                      TX: {trade.entryTxHash ? `${trade.entryTxHash.slice(0, 10)}...${trade.entryTxHash.slice(-8)}` : 'Pending'}
+                    </div>
+                    <div className="text-xs text-green-200 mt-1">
+                      Supra Automation monitoring for take profit/stop loss
+                    </div>
+                  </div>
+                )}
+
+                {/* Mock Trade Notice */}
+                {isMockTrade && (
+                  <div className="mb-3 p-2 bg-blue-900/20 rounded border border-blue-500/30">
+                    <div className="text-xs text-blue-300">📋 Paper trade - No real money involved</div>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-3">
+                  <div>
+                    <div className="text-xs text-gray-400">Entry Price</div>
+                    <div className="text-white font-semibold">{formatPrice(trade.entryPrice)}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-400">Take Profit</div>
+                    <div className="text-green-400 font-semibold">
+                      {formatPrice(trade.takeProfitPrice)}
+                      <span className="text-xs ml-1">
+                        ({formatPercent(trade.entryPrice, trade.takeProfitPrice)})
+                      </span>
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-400">Stop Loss</div>
+                    <div className="text-red-400 font-semibold">
+                      {formatPrice(trade.stopLossPrice)}
+                      <span className="text-xs ml-1">
+                        ({formatPercent(trade.entryPrice, trade.stopLossPrice)})
+                      </span>
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-400">Confidence</div>
+                    <div className="text-purple-400 font-semibold">{trade.confidence}/10</div>
                   </div>
                 </div>
-                <div className="text-sm">
-                  <span className="text-gray-400">Stop Loss:</span>
-                  <div className="text-red-400 font-medium">
-                    {formatPrice(trade.stopLossPrice)}
-                    <span className="text-xs ml-1">
-                      ({formatPercent(trade.entryPrice, trade.stopLossPrice)})
-                    </span>
-                  </div>
-                </div>
-              </div>
 
-              <div className="flex items-center justify-between text-sm">
-                <div className="flex items-center gap-4">
-                  <span className="text-gray-400">
-                    <Brain size={14} className="inline mr-1" />
-                    Confidence: <span className="text-white">{trade.confidence}/10</span>
-                  </span>
-                  <span className="text-gray-400">
-                    <Clock size={14} className="inline mr-1" />
-                    {trade.timeframe}
-                  </span>
-                </div>
-                <div className="text-gray-400">
-                  R/R: <span className="text-white">{trade.riskReward}:1</span>
-                </div>
-              </div>
-
-              {trade.reasoning && (
-                <div className="mt-3 p-3 bg-gray-800 rounded text-sm text-gray-300">
-                  <div className="text-purple-400 font-medium mb-1">AI Analysis:</div>
+                <div className="text-sm text-gray-300 mb-3">
                   {trade.reasoning}
                 </div>
-              )}
-            </div>
-          ))}
+
+                <div className="flex items-center justify-between text-xs">
+                  <div className="text-gray-400">
+                    Risk/Reward: {trade.riskReward?.toFixed(1) || 'N/A'}
+                  </div>
+                  <div className="text-gray-400">
+                    Timeframe: {trade.timeframe || 'N/A'}
+                  </div>
+                </div>
+              </div>
+            )
+          })}
 
           {trades.length >= 10 && (
             <div className="text-center pt-4">

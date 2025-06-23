@@ -1,6 +1,7 @@
 import { useAccount, useConnect, useDisconnect, useSwitchChain } from 'wagmi'
 import { bsc } from 'wagmi/chains'
 import { useEffect, useState } from 'react'
+import { Button } from './ui'
 
 export function WalletConnect() {
   const { address, isConnected, chain } = useAccount()
@@ -117,10 +118,10 @@ export function WalletConnect() {
           </p>
         </div>
         
-        <button
+        <Button
           onClick={handleConnect}
           disabled={isPending}
-          className="bg-yellow-600 hover:bg-yellow-700 disabled:bg-gray-600 px-6 py-3 rounded-lg text-white font-medium transition-colors flex items-center space-x-2"
+          className="w-full justify-center"
         >
           {isPending ? (
             <>
@@ -133,7 +134,7 @@ export function WalletConnect() {
               <span>Connect MetaMask</span>
             </>
           )}
-        </button>
+        </Button>
 
         <div className="text-xs text-gray-500 text-center">
           <p>Make sure you have MetaMask installed</p>
@@ -164,10 +165,10 @@ export function WalletConnect() {
         </div>
         
         <div className="flex flex-col space-y-3 w-full">
-          <button
+          <Button
             onClick={handleSwitchToBSC}
             disabled={isSwitchingNetwork}
-            className="bg-yellow-600 hover:bg-yellow-700 disabled:bg-gray-600 px-4 py-3 rounded text-white transition-colors flex items-center justify-center space-x-2 font-medium"
+            className="justify-center"
           >
             {isSwitchingNetwork ? (
               <>
@@ -180,14 +181,11 @@ export function WalletConnect() {
                 <span>Switch to Binance Smart Chain</span>
               </>
             )}
-          </button>
+          </Button>
           
-          <button
-            onClick={() => disconnect()}
-            className="bg-gray-600 hover:bg-gray-700 px-4 py-2 rounded text-white transition-colors text-sm"
-          >
+          <Button variant="secondary" size="sm" onClick={() => disconnect()} className="justify-center">
             Disconnect Wallet
-          </button>
+          </Button>
         </div>
 
         <div className="text-xs text-gray-500 text-center mt-2">
@@ -223,12 +221,9 @@ export function WalletConnect() {
         </div>
       </div>
       
-      <button
-        onClick={() => disconnect()}
-        className="bg-red-600 hover:bg-red-700 px-4 py-2 rounded text-white transition-colors text-sm"
-      >
+      <Button variant="secondary" size="sm" onClick={() => disconnect()} className="justify-center">
         Disconnect
-      </button>
+      </Button>
     </div>
   )
 } 

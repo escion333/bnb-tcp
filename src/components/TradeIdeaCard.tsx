@@ -105,7 +105,7 @@ export function TradeIdeaCard({ tradeIdea, isLoading, onGenerate, onAction }: Tr
           <p className="text-gray-400 mb-6">
             Get AI-powered trade recommendations based on current market conditions
           </p>
-          <Button onClick={onGenerate} variant="primary" size="lg">
+          <Button onClick={onGenerate} variant="default" size="lg">
             <Brain className="mr-2" size={20} />
             Generate Trade Idea
           </Button>
@@ -218,7 +218,7 @@ export function TradeIdeaCard({ tradeIdea, isLoading, onGenerate, onAction }: Tr
             </Button>
             <Button
               onClick={() => handleAction('monitor')}
-              variant="warning"
+              variant="outline"
               size="sm"
               disabled={!!actionLoading}
               className="flex-1"
@@ -227,7 +227,7 @@ export function TradeIdeaCard({ tradeIdea, isLoading, onGenerate, onAction }: Tr
             </Button>
             <Button
               onClick={() => handleAction('execute')}
-              variant="success"
+              variant="default"
               size="sm"
               disabled={!!actionLoading}
               className="flex-1"
@@ -240,7 +240,7 @@ export function TradeIdeaCard({ tradeIdea, isLoading, onGenerate, onAction }: Tr
           <div className="text-center pt-4 border-t border-gray-700">
             <Button
               onClick={onGenerate}
-              variant="primary"
+              variant="default"
               size="sm"
               disabled={isLoading}
             >

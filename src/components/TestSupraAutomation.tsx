@@ -1,8 +1,6 @@
 import { useState } from 'react'
 import { supraAutomation, type TradeAutomationParams } from '../lib/supra-automation'
-import { Button } from './ui/Button'
-import { LoadingSpinner } from './ui/LoadingSpinner'
-import { Card } from './ui/Card'
+import { Button, Card, LoadingSpinner } from './ui'
 import { Bot, CheckCircle, AlertCircle } from 'lucide-react'
 
 interface TestResult {
@@ -120,7 +118,7 @@ export function TestSupraAutomation() {
           <Button
             onClick={runFullTest}
             disabled={isLoading}
-            variant="primary"
+                          variant="default"
             className="flex items-center justify-center"
           >
             {isLoading ? <LoadingSpinner size="sm" /> : <Bot className="mr-2" size={16} />}

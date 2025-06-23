@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Modal } from './ui/Modal'
-import { Button } from './ui/Button'
-import { LoadingSpinner } from './ui/LoadingSpinner'
+import { Button, LoadingSpinner } from './ui'
 import { useAccount } from 'wagmi'
 import type { TradeIdea } from '../lib/openai'
 import { 
@@ -12,7 +11,8 @@ import {
   TOKENS,
   getTokenDisplayName,
   type SwapParams,
-  type SwapQuote 
+  type SwapQuote,
+  getTokenBalance
 } from '../lib/pancakeswap'
 import { supraAutomation, type TradeAutomationParams } from '../lib/supra-automation'
 import { AlertCircle, ArrowRight, CheckCircle, ExternalLink, Bot } from 'lucide-react'
@@ -77,7 +77,7 @@ export function TradeExecutionModal({
   })
 
   // Define the tokens we're trading (consistent across the component)
-  const tokenIn = TOKENS.NATIVE_BNB // Swap BNB for USDT (you have BNB!)
+  const tokenIn = TOKENS.NATIVE_BNB // Use native BNB with safe amounts
   const tokenOut = TOKENS.USDT // Get USDT output
 
   // Reset state when modal opens/closes or trade idea changes
@@ -101,7 +101,27 @@ export function TradeExecutionModal({
     setState(prev => ({ ...prev, isLoading: true, error: null }))
 
     try {
-      const amountIn = '0.01' // Default 0.01 BNB trade size (~$6-7)
+      // Get user's current BNB balance
+      const bnbBalance = await getTokenBalance(TOKENS.NATIVE_BNB, address)
+      const balanceNumber = parseFloat(bnbBalance)
+      
+      // Reserve 0.005 BNB for gas fees (safe buffer)
+      const gasReserve = 0.005
+      const maxTradeAmount = Math.max(0, balanceNumber - gasReserve)
+      
+      // Use smaller of: 0.002 BNB (safer) or available amount
+      const desiredAmount = 0.002
+      const amountIn = Math.min(desiredAmount, maxTradeAmount).toString()
+      
+      // Check if user has enough for any trade
+      if (maxTradeAmount <= 0.001) {
+        setState(prev => ({
+          ...prev,
+          error: `Insufficient BNB balance. You have ${balanceNumber.toFixed(4)} BNB but need at least ${(gasReserve + 0.001).toFixed(3)} BNB (${gasReserve.toFixed(3)} for gas + 0.001 minimum trade)`,
+          isLoading: false
+        }))
+        return
+      }
 
       const swapParams: SwapParams = {
         tokenIn,
@@ -109,7 +129,7 @@ export function TradeExecutionModal({
         amountIn,
         slippageTolerance: 2.0, // 2.0% slippage for mainnet reliability
         recipient: address,
-        useNativeBNB: true // Use native BNB (no approval needed!)
+        useNativeBNB: true // Use native BNB with safe amounts
       }
 
       // Get quote
@@ -140,7 +160,13 @@ export function TradeExecutionModal({
     setState(prev => ({ ...prev, step: 'approval', isLoading: true, error: null }))
 
     try {
-      const amountIn = '0.01'
+      // Use dynamic amount based on calculated trade size
+      const bnbBalance = await getTokenBalance(TOKENS.NATIVE_BNB, address)
+      const balanceNumber = parseFloat(bnbBalance)
+      const gasReserve = 0.005
+      const maxTradeAmount = Math.max(0, balanceNumber - gasReserve)
+      const desiredAmount = 0.003
+      const amountIn = Math.min(desiredAmount, maxTradeAmount).toString()
 
       await approveToken(tokenIn, amountIn)
       
@@ -180,11 +206,19 @@ export function TradeExecutionModal({
     setState(prev => ({ ...prev, step: 'swap', isLoading: true, error: null }))
 
     try {
+      // Calculate safe amount based on current BNB balance  
+      const bnbBalance = await getTokenBalance(TOKENS.NATIVE_BNB, address)
+      const balanceNumber = parseFloat(bnbBalance)
+      const gasReserve = 0.005
+      const maxTradeAmount = Math.max(0, balanceNumber - gasReserve)
+      const desiredAmount = 0.002
+      const amountIn = Math.min(desiredAmount, maxTradeAmount).toString()
+      
       const swapParams: SwapParams = {
         tokenIn,
         tokenOut,
-        amountIn: '0.01',
-                  slippageTolerance: 2.0,
+        amountIn,
+        slippageTolerance: 2.0,
         recipient: address,
         useNativeBNB: true
       }
@@ -307,7 +341,7 @@ export function TradeExecutionModal({
       confidence: tradeIdea.confidence,
       reasoning: tradeIdea.reasoning,
       createdAt: new Date().toISOString(),
-      amountIn: '0.01', // 0.01 BNB
+      amountIn: state.quote.amountOut, // Dynamic amount based on actual trade
       amountOut: state.quote.amountOut,
       automationTaskIds
     }
@@ -462,7 +496,7 @@ export function TradeExecutionModal({
                 <Button 
                   onClick={handleApproval}
                   disabled={state.isLoading}
-                  variant="warning"
+                                      variant="outline"
                   className="flex-1"
                 >
                   {state.isLoading ? <LoadingSpinner size="sm" /> : 'Approve USDT'}
@@ -471,7 +505,7 @@ export function TradeExecutionModal({
                 <Button 
                   onClick={handleExecuteSwap}
                   disabled={state.isLoading || !state.quote}
-                  variant="success"
+                                      variant="default"
                   className="flex-1"
                 >
                   {state.isLoading ? <LoadingSpinner size="sm" /> : 'Execute Trade'}
@@ -567,7 +601,7 @@ export function TradeExecutionModal({
                 </a>
               )}
             </div>
-            <Button onClick={handleClose} variant="primary" className="w-full">
+                            <Button onClick={handleClose} variant="default" className="w-full">
               Close
             </Button>
           </div>
@@ -587,7 +621,7 @@ export function TradeExecutionModal({
               <Button variant="secondary" onClick={handleClose} className="flex-1">
                 Close
               </Button>
-              <Button onClick={loadQuoteAndApproval} variant="primary" className="flex-1">
+                                <Button onClick={loadQuoteAndApproval} variant="default" className="flex-1">
                 Try Again
               </Button>
             </div>

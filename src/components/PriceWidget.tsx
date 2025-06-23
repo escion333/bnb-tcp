@@ -1,4 +1,6 @@
 import { usePriceData } from '../hooks/usePriceData'
+import { TrendingUp, TrendingDown, RefreshCw, AlertCircle } from 'lucide-react'
+import { Button } from './ui'
 
 export function PriceWidget() {
   const { priceData, isLoading, error, refetch } = usePriceData()
@@ -18,117 +20,119 @@ export function PriceWidget() {
   }
 
   const getTrendColor = (change: number) => {
-    if (change > 0) return 'text-green-400'
-    if (change < 0) return 'text-red-400'
-    return 'text-gray-400'
+    if (change > 0) return 'text-green-500'
+    if (change < 0) return 'text-red-500'
+    return 'text-muted-foreground'
   }
 
   const getTrendBg = (change: number) => {
-    if (change > 0) return 'bg-green-900/20 border-green-500/30'
-    if (change < 0) return 'bg-red-900/20 border-red-500/30'
-    return 'bg-gray-900/20 border-gray-500/30'
+    if (change > 0) return 'bg-green-500/10 border-green-500/20'
+    if (change < 0) return 'bg-red-500/10 border-red-500/20'
+    return 'bg-muted/5 border-muted/20'
   }
 
-  const getSourceColor = (source: string) => {
+  const getSourceInfo = (source: string) => {
     switch (source) {
-      case 'supra': return 'text-purple-400'
-      case 'coingecko': return 'text-blue-400'
-      case 'mock': return 'text-yellow-400'
-      default: return 'text-gray-400'
-    }
-  }
-
-  const getSourceLabel = (source: string) => {
-    switch (source) {
-      case 'supra': return '🔮 Supra Oracle'
-      case 'coingecko': return '🦄 CoinGecko (Fallback)'
-      case 'mock': return '🎭 Mock Data (Dev Mode)'
-      default: return '❓ Unknown Source'
+      case 'supra': return { label: 'Supra Oracle', color: 'text-purple-500' }
+      case 'coingecko': return { label: 'CoinGecko', color: 'text-blue-500' }
+      case 'mock': return { label: 'Mock Data', color: 'text-yellow-500' }
+      default: return { label: 'Unknown', color: 'text-muted-foreground' }
     }
   }
 
   if (error && !priceData) {
     return (
-      <div className="flex flex-col items-center space-y-4">
-        <h3 className="text-lg font-semibold mb-2 text-red-400">
-          📈 Price Feed Error
-        </h3>
-        <p className="text-gray-400 text-sm text-center mb-4">
-          {error}
-        </p>
-        <button
-          onClick={refetch}
-          className="bg-green-600 hover:bg-green-700 px-4 py-2 rounded text-white transition-colors text-sm"
-        >
+      <div className="flex items-center justify-between p-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-red-500/10 rounded-lg flex items-center justify-center">
+            <AlertCircle className="h-5 w-5 text-red-500" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-red-500">Price Feed Error</h3>
+            <p className="text-xs text-muted-foreground">{error}</p>
+          </div>
+        </div>
+        <Button onClick={refetch} size="sm" variant="outline">
+          <RefreshCw className="h-3 w-3 mr-1" />
           Retry
-        </button>
+        </Button>
       </div>
     )
   }
 
   if (isLoading || !priceData) {
     return (
-      <div className="flex flex-col items-center space-y-4">
-        <h3 className="text-lg font-semibold mb-2 text-green-400">
-          📈 Price Feed
-        </h3>
-        <div className="flex items-center space-x-2">
-          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-400"></div>
-          <span className="text-gray-400">Loading price...</span>
+      <div className="flex items-center justify-between p-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
+            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary"></div>
+          </div>
+          <div>
+            <h3 className="font-semibold">Loading Price...</h3>
+            <p className="text-xs text-muted-foreground">WBNB/USDT</p>
+          </div>
         </div>
-        <div className="text-gray-500">
-                          WBNB/USDT: $---.--
+        <div className="text-right">
+          <div className="text-lg font-bold text-muted-foreground">$---.--</div>
+          <div className="text-xs text-muted-foreground">---%</div>
         </div>
       </div>
     )
   }
 
-  return (
-    <div className="flex flex-col items-center space-y-4">
-      <h3 className="text-lg font-semibold mb-2 text-green-400">
-        📈 Live Price Feed
-      </h3>
-      
-      <div className={`border rounded-lg p-4 w-full ${getTrendBg(priceData.changePercent24h)}`}>
-        <div className="text-center space-y-3">
-          <div className="text-sm text-gray-400 font-medium">
-                            WBNB/USDT
-          </div>
-          
-          <div className="text-2xl font-bold text-white">
-            ${formatPrice(priceData.price)}
-          </div>
-          
-          <div className={`text-sm font-medium ${getTrendColor(priceData.changePercent24h)}`}>
-            <div>{formatChange(priceData.change24h)} USDT</div>
-            <div>{formatPercent(priceData.changePercent24h)}</div>
-          </div>
+  const sourceInfo = getSourceInfo(priceData.source)
+  const isPositive = priceData.changePercent24h >= 0
 
-          <div className="text-xs text-gray-400 space-y-1">
-            <div className="flex justify-between">
-              <span>24h High:</span>
-              <span className="text-green-400">${formatPrice(priceData.high24h)}</span>
-            </div>
-            <div className="flex justify-between">
-              <span>24h Low:</span>
-              <span className="text-red-400">${formatPrice(priceData.low24h)}</span>
-            </div>
+  return (
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${getTrendBg(priceData.changePercent24h)}`}>
+            {isPositive ? (
+              <TrendingUp className="h-4 w-4 text-green-500" />
+            ) : (
+              <TrendingDown className="h-4 w-4 text-red-500" />
+            )}
+          </div>
+          <div>
+            <h3 className="font-semibold text-sm">WBNB/USDT</h3>
+            <p className={`text-xs ${sourceInfo.color}`}>{sourceInfo.label}</p>
+          </div>
+        </div>
+        <div className="text-xs text-muted-foreground">
+          {priceData.lastUpdate.toLocaleTimeString()}
+        </div>
+      </div>
+
+      {/* Price & Change */}
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="text-2xl font-bold">${formatPrice(priceData.price)}</div>
+          <div className={`text-sm font-medium ${getTrendColor(priceData.changePercent24h)}`}>
+            {formatChange(priceData.change24h)} USDT ({formatPercent(priceData.changePercent24h)})
           </div>
         </div>
       </div>
-      
-      <div className="text-xs text-gray-500 text-center space-y-1">
-        <div className={getSourceColor(priceData.source)}>
-          {getSourceLabel(priceData.source)}
+
+      {/* 24h Stats */}
+      <div className="grid grid-cols-2 gap-4 pt-3 border-t">
+        <div>
+          <div className="text-xs text-muted-foreground">24h High</div>
+          <div className="font-semibold text-green-500">${formatPrice(priceData.high24h)}</div>
         </div>
-        <div>Updates every 5 seconds</div>
-        <div>Last: {priceData.lastUpdate.toLocaleTimeString()}</div>
-        {error && (
-          <div className="text-orange-400 mt-2">
-            ⚠️ {error}
-          </div>
-        )}
+        <div>
+          <div className="text-xs text-muted-foreground">24h Low</div>
+          <div className="font-semibold text-red-500">${formatPrice(priceData.low24h)}</div>
+        </div>
       </div>
+
+      {/* Error Display */}
+      {error && (
+        <div className="text-xs text-orange-500 bg-orange-500/10 p-2 rounded border border-orange-500/20">
+          ⚠️ {error}
+        </div>
+      )}
     </div>
   )
 } 

@@ -1,5 +1,5 @@
 // Supra Oracle REST API Integration
-// Using real Supra price feeds for BNB_USDT
+// Using real Supra price feeds for BNB_USDT with market cap from CoinGecko
 
 interface SupraLatestResponse {
   currentPage: number
@@ -23,6 +23,8 @@ interface PriceData {
   changePercent24h: number
   high24h: number
   low24h: number
+  volume24h: number
+  marketCap: number
   lastUpdate: Date
   source: 'supra'
   rawData?: {
@@ -89,6 +91,36 @@ class SupraOracleClient {
   }
 
   /**
+   * Fetch volume and market cap data from CoinGecko (more accurate than Supra for volume)
+   */
+  async fetchVolumeAndMarketCapData(): Promise<{ volume24h: number; marketCap: number }> {
+    try {
+      console.log('📊 Fetching BNB volume and market cap from CoinGecko...')
+      
+      const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=binancecoin&vs_currencies=usd&include_24hr_vol=true&include_market_cap=true')
+      
+      if (!response.ok) {
+        throw new Error(`CoinGecko API error: ${response.status}`)
+      }
+      
+      const data = await response.json()
+      
+      if (!data.binancecoin) {
+        throw new Error('No BNB data from CoinGecko')
+      }
+      
+      const volume24h = data.binancecoin.usd_24h_vol || 0
+      const marketCap = data.binancecoin.usd_market_cap || 0
+      
+      console.log('✅ Volume and market cap fetched from CoinGecko:', { volume24h, marketCap })
+      return { volume24h, marketCap }
+    } catch (error) {
+      console.error('❌ Volume and market cap fetch error:', error)
+      return { volume24h: 0, marketCap: 0 } // Return 0 on error
+    }
+  }
+
+  /**
    * Calculate 24h change from Supra data
    */
   private calculate24hChange(currentPrice: number, changePercent: number): { change24h: number; changePercent24h: number } {
@@ -101,12 +133,15 @@ class SupraOracleClient {
   }
 
   /**
-   * Get current BNB_USDT price from Supra Oracle
+   * Get current BNB_USDT price from Supra Oracle with volume/market cap from CoinGecko
    */
   async getCurrentPrice(): Promise<PriceData> {
     try {
-      // Fetch latest price from Supra
-      const supraData = await this.fetchLatestPrice()
+      // Fetch price from Supra and volume/market cap from CoinGecko in parallel
+      const [supraData, { volume24h, marketCap }] = await Promise.all([
+        this.fetchLatestPrice(),
+        this.fetchVolumeAndMarketCapData()
+      ])
       
       // Extract first instrument (should be BNB_USDT)
       const instrument = supraData.instruments[0]
@@ -134,6 +169,8 @@ class SupraOracleClient {
         changePercent24h: changePercent24h,
         high24h: high24h,
         low24h: low24h,
+        volume24h: volume24h,
+        marketCap: marketCap,
         lastUpdate: lastUpdate,
         source: 'supra',
         rawData: {
