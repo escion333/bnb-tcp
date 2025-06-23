@@ -121,7 +121,7 @@ export function TradeExecutionModal({
     try {
       const amountIn = '100'
 
-      const txHash = await approveToken(tokenIn, amountIn)
+      await approveToken(tokenIn, amountIn)
       
       // Wait a moment for the approval to propagate
       setTimeout(() => {
@@ -196,7 +196,7 @@ export function TradeExecutionModal({
     }
   }
 
-  const registerTradeAutomation = async (txHash: string) => {
+  const registerTradeAutomation = async (_txHash: string) => {
     if (!tradeIdea || !address || !state.quote) {
       console.log('⚠️ Skipping automation registration - missing data')
       setState(prev => ({ ...prev, step: 'success', isLoading: false }))

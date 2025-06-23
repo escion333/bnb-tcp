@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useAccount } from 'wagmi'
-import { History, TrendingUp, TrendingDown, Brain, Clock, Target, Shield, Eye, X } from 'lucide-react'
+import { History, TrendingUp, Brain, Clock, Target, Eye, X } from 'lucide-react'
 import { Card, Button, LoadingSpinner } from './ui'
-import { TradesService, type SavedTrade } from '../lib/trades'
+import { type SavedTrade } from '../lib/trades'
 
 export function TradeHistory() {
   const { address, isConnected } = useAccount()

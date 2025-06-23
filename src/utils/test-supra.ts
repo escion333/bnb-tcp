@@ -34,9 +34,7 @@ async function testSupraOracle() {
     
     if (priceData.rawData) {
       console.log(`   Raw Data:`)
-      console.log(`     Pair ID: ${priceData.rawData.pair}`)
-      console.log(`     Decimals: ${priceData.rawData.decimals}`)
-      console.log(`     Round: ${priceData.rawData.round}`)
+      console.log(`     Raw Data:`, priceData.rawData)
       console.log(`     Timestamp: ${priceData.rawData.timestamp}`)
     }
     
