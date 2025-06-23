@@ -34,11 +34,21 @@ export function TradeHistory() {
     try {
       // Load trades from localStorage instead of disabled database
       console.log('📊 Loading trades from localStorage...')
-      const localTrades = JSON.parse(localStorage.getItem('localTrades') || '[]')
+      console.log('📊 Current address:', address)
+      const rawData = localStorage.getItem('localTrades')
+      console.log('📊 Raw localStorage data:', rawData)
+      const localTrades = JSON.parse(rawData || '[]')
+      console.log('📊 Parsed trades:', localTrades)
+      console.log('📊 Total trades in storage:', localTrades.length)
       
       // Convert to SavedTrade format and filter by current wallet
+      console.log('📊 Filtering trades for address:', address)
       const userTrades = localTrades
-        .filter((trade: any) => trade.id.startsWith(address))
+        .filter((trade: any) => {
+          const matches = trade.id.startsWith(address)
+          console.log(`📊 Trade ${trade.id} matches ${address}:`, matches)
+          return matches
+        })
         .map((trade: any): SavedTrade => ({
           id: trade.id,
           userId: address,
@@ -59,6 +69,7 @@ export function TradeHistory() {
           entryTxHash: trade.txHash
         }))
       
+      console.log('📊 Final filtered trades:', userTrades)
       setTrades(userTrades)
       console.log(`📊 Loaded ${userTrades.length} trades from localStorage`)
     } catch (err) {
@@ -168,6 +179,24 @@ export function TradeHistory() {
           </div>
         </div>
       )}
+
+      {/* Debug Controls */}
+      <div className="mb-4 flex gap-2">
+        <Button onClick={() => { loadTrades(); loadStats(); }} variant="secondary" size="sm">
+          🔄 Refresh Data
+        </Button>
+        <Button 
+          onClick={() => {
+            console.log('🔍 localStorage data:', localStorage.getItem('localTrades'))
+            console.log('🔍 Current address:', address)
+            console.log('🔍 All localStorage keys:', Object.keys(localStorage))
+          }} 
+          variant="secondary" 
+          size="sm"
+        >
+          🔍 Debug Storage
+        </Button>
+      </div>
 
       {/* Loading State */}
       {isLoading && trades.length === 0 && (

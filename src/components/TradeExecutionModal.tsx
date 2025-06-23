@@ -283,7 +283,17 @@ export function TradeExecutionModal({
 
   // Add function to save trade to localStorage
   const saveTradeToLocalStorage = (txHash: string, automationTaskIds?: { takeProfitTaskId: string; stopLossTaskId: string }) => {
-    if (!tradeIdea || !address || !state.quote) return
+    console.log('💾 Starting saveTradeToLocalStorage...')
+    console.log('💾 Inputs:', { txHash, automationTaskIds, tradeIdea: !!tradeIdea, address, quote: !!state.quote })
+    
+    if (!tradeIdea || !address || !state.quote) {
+      console.error('💾 Cannot save - missing required data:', { 
+        tradeIdea: !!tradeIdea, 
+        address: !!address, 
+        quote: !!state.quote 
+      })
+      return
+    }
 
     const trade: LocalTrade = {
       id: `${address}_${Date.now()}`,
@@ -302,17 +312,72 @@ export function TradeExecutionModal({
       automationTaskIds
     }
 
-    // Get existing trades
-    const existingTrades = JSON.parse(localStorage.getItem('localTrades') || '[]')
-    existingTrades.unshift(trade) // Add to beginning
+    console.log('💾 Trade object created:', trade)
+
+    try {
+      // Get existing trades
+      const existingTrades = JSON.parse(localStorage.getItem('localTrades') || '[]')
+      console.log('💾 Existing trades count:', existingTrades.length)
+      
+      existingTrades.unshift(trade) // Add to beginning
+      
+      // Keep only last 50 trades
+      if (existingTrades.length > 50) {
+        existingTrades.splice(50)
+      }
+      
+      localStorage.setItem('localTrades', JSON.stringify(existingTrades))
+      console.log('✅ Trade saved to localStorage successfully!')
+      console.log('💾 New trades count:', existingTrades.length)
+      console.log('💾 Saved trade ID:', trade.id)
+      
+      // Verify the save worked
+      const verification = JSON.parse(localStorage.getItem('localTrades') || '[]')
+      console.log('💾 Verification - total trades now:', verification.length)
+      console.log('💾 First trade in array:', verification[0]?.id)
+      
+    } catch (error) {
+      console.error('❌ Failed to save trade to localStorage:', error)
+    }
+  }
+
+  // DEBUG: Add test function to create sample trade
+  const createTestTrade = () => {
+    if (!address) return
     
-    // Keep only last 50 trades
-    if (existingTrades.length > 50) {
-      existingTrades.splice(50)
+    console.log('🧪 Creating test trade for debugging...')
+    const testTrade: LocalTrade = {
+      id: `${address}_${Date.now()}`,
+      txHash: '0x1234567890abcdef',
+      symbol: 'WBNB/USDT',
+      status: 'monitoring',
+      entryPrice: 635.50,
+      currentPrice: 635.50,
+      takeProfitPrice: 685.20,
+      stopLossPrice: 590.00,
+      confidence: 8,
+      reasoning: 'Test trade for debugging dashboard display',
+      createdAt: new Date().toISOString(),
+      amountIn: '0.01',
+      amountOut: '6.18',
+      automationTaskIds: {
+        takeProfitTaskId: 'mock_take_profit_test123',
+        stopLossTaskId: 'mock_stop_loss_test456'
+      }
     }
     
+    const existingTrades = JSON.parse(localStorage.getItem('localTrades') || '[]')
+    existingTrades.unshift(testTrade)
     localStorage.setItem('localTrades', JSON.stringify(existingTrades))
-    console.log('💾 Trade saved to localStorage:', trade.id)
+    console.log('🧪 Test trade created:', testTrade.id)
+    
+    // Trigger a page refresh to see if Trade History loads it
+    window.location.reload()
+  }
+
+  // Add to window for debugging (remove in production)
+  if (typeof window !== 'undefined') {
+    (window as any).createTestTrade = createTestTrade
   }
 
   if (!tradeIdea) return null
