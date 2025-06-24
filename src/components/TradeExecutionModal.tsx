@@ -37,6 +37,22 @@ interface ExecutionState {
     takeProfitTaskId: string
     stopLossTaskId: string
   }
+  simulationResult?: {
+    takeProfitSimulation: {
+      success: boolean
+      estimatedGas: number
+      estimatedFee: number
+      errors?: string[]
+    }
+    stopLossSimulation: {
+      success: boolean
+      estimatedGas: number
+      estimatedFee: number
+      errors?: string[]
+    }
+    totalEstimatedGas: number
+    totalEstimatedFee: number
+  }
 }
 
 // Add this interface for local trade storage
@@ -44,7 +60,7 @@ interface LocalTrade {
   id: string
   txHash: string
   symbol: string
-  status: 'executed' | 'monitoring'
+  status: 'active' | 'monitoring'
   entryPrice: number
   currentPrice: number
   takeProfitPrice: number
@@ -54,6 +70,7 @@ interface LocalTrade {
   createdAt: string
   amountIn: string
   amountOut: string
+  tradeValue: number
   automationTaskIds?: {
     takeProfitTaskId: string
     stopLossTaskId: string
@@ -77,8 +94,8 @@ export function TradeExecutionModal({
   })
 
   // Define the tokens we're trading (consistent across the component)
-  const tokenIn = TOKENS.NATIVE_BNB // Use native BNB with safe amounts
-  const tokenOut = TOKENS.USDT // Get USDT output
+  const tokenIn = TOKENS.USDT // Use USDT to buy WBNB (LONG position)
+  const tokenOut = TOKENS.WBNB // Get WBNB output (we're going LONG on WBNB)
 
   // Reset state when modal opens/closes or trade idea changes
   useEffect(() => {
@@ -96,28 +113,55 @@ export function TradeExecutionModal({
   }, [isOpen, tradeIdea])
 
   const loadQuoteAndApproval = async () => {
-    if (!tradeIdea || !address) return
+    if (!tradeIdea || !address) {
+      console.log('❌ loadQuoteAndApproval: Missing tradeIdea or address', { tradeIdea: !!tradeIdea, address: !!address })
+      return
+    }
 
+    console.log('🔄 Loading quote and approval check...')
     setState(prev => ({ ...prev, isLoading: true, error: null }))
 
     try {
-      // Get user's current BNB balance
+      // Get user's current USDT balance (for LONG position - selling USDT to buy WBNB)
+      console.log('📊 Getting USDT balance for address:', address)
+      const usdtBalance = await getTokenBalance(TOKENS.USDT, address)
+      const balanceNumber = parseFloat(usdtBalance)
+      console.log('💰 Current USDT balance:', balanceNumber)
+      
+      // For USDT trades, we need BNB for gas fees
       const bnbBalance = await getTokenBalance(TOKENS.NATIVE_BNB, address)
-      const balanceNumber = parseFloat(bnbBalance)
+      const bnbBalanceNumber = parseFloat(bnbBalance)
       
-      // Reserve 0.005 BNB for gas fees (safe buffer)
-      const gasReserve = 0.005
-      const maxTradeAmount = Math.max(0, balanceNumber - gasReserve)
-      
-      // Use smaller of: 0.002 BNB (safer) or available amount
-      const desiredAmount = 0.002
-      const amountIn = Math.min(desiredAmount, maxTradeAmount).toString()
-      
-      // Check if user has enough for any trade
-      if (maxTradeAmount <= 0.001) {
+      // Check if user has enough BNB for gas (need at least 0.002 BNB for gas)
+      if (bnbBalanceNumber < 0.002) {
+        const errorMsg = `Insufficient BNB for gas fees. You have ${bnbBalanceNumber.toFixed(4)} BNB but need at least 0.002 BNB for transaction fees`
+        console.log('❌ Insufficient BNB for gas:', errorMsg)
         setState(prev => ({
           ...prev,
-          error: `Insufficient BNB balance. You have ${balanceNumber.toFixed(4)} BNB but need at least ${(gasReserve + 0.001).toFixed(3)} BNB (${gasReserve.toFixed(3)} for gas + 0.001 minimum trade)`,
+          error: errorMsg,
+          isLoading: false
+        }))
+        return
+      }
+      
+      // Use reasonable amount of USDT: 1 USDT or available amount
+      const desiredAmount = 1.0 // 1 USDT for testing
+      const amountIn = Math.min(desiredAmount, balanceNumber).toString()
+      
+      console.log('📊 Trade calculation:', {
+        usdtBalance: balanceNumber,
+        bnbBalance: bnbBalanceNumber,
+        desiredAmount,
+        amountIn
+      })
+      
+      // Check if user has enough USDT for trade (minimum 0.1 USDT)
+      if (balanceNumber < 0.1) {
+        const errorMsg = `Insufficient USDT balance. You have ${balanceNumber.toFixed(2)} USDT but need at least 0.1 USDT for trading (plus 0.002 BNB for gas)`
+        console.log('❌ Insufficient USDT balance:', errorMsg)
+        setState(prev => ({
+          ...prev,
+          error: errorMsg,
           isLoading: false
         }))
         return
@@ -129,14 +173,18 @@ export function TradeExecutionModal({
         amountIn,
         slippageTolerance: 2.0, // 2.0% slippage for mainnet reliability
         recipient: address,
-        useNativeBNB: true // Use native BNB with safe amounts
+        useNativeBNB: false // We're doing USDT -> WBNB trade
       }
 
+      console.log('📡 Getting swap quote with params:', swapParams)
       // Get quote
       const quote = await getSwapQuote(swapParams)
+      console.log('✅ Quote received:', quote)
 
       // Check if approval is needed
+      console.log('🔍 Checking token approval...')
       const approval = await checkTokenApproval(tokenIn, address, amountIn)
+      console.log('✅ Approval check complete:', approval)
 
       setState(prev => ({
         ...prev,
@@ -144,11 +192,13 @@ export function TradeExecutionModal({
         needsApproval: approval.needsApproval,
         isLoading: false
       }))
+      console.log('✅ Quote and approval check completed successfully')
     } catch (error) {
-      console.error('Error loading quote:', error)
+      console.error('❌ Error loading quote:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
       setState(prev => ({
         ...prev,
-        error: 'Failed to load trade quote',
+        error: `Failed to load trade quote: ${errorMessage}`,
         isLoading: false
       }))
     }
@@ -161,12 +211,10 @@ export function TradeExecutionModal({
 
     try {
       // Use dynamic amount based on calculated trade size
-      const bnbBalance = await getTokenBalance(TOKENS.NATIVE_BNB, address)
-      const balanceNumber = parseFloat(bnbBalance)
-      const gasReserve = 0.005
-      const maxTradeAmount = Math.max(0, balanceNumber - gasReserve)
-      const desiredAmount = 0.003
-      const amountIn = Math.min(desiredAmount, maxTradeAmount).toString()
+      const usdtBalance = await getTokenBalance(TOKENS.USDT, address)
+      const balanceNumber = parseFloat(usdtBalance)
+      const desiredAmount = 1.0 // 1 USDT for testing
+      const amountIn = Math.min(desiredAmount, balanceNumber).toString()
 
       await approveToken(tokenIn, amountIn)
       
@@ -206,13 +254,11 @@ export function TradeExecutionModal({
     setState(prev => ({ ...prev, step: 'swap', isLoading: true, error: null }))
 
     try {
-      // Calculate safe amount based on current BNB balance  
-      const bnbBalance = await getTokenBalance(TOKENS.NATIVE_BNB, address)
-      const balanceNumber = parseFloat(bnbBalance)
-      const gasReserve = 0.005
-      const maxTradeAmount = Math.max(0, balanceNumber - gasReserve)
-      const desiredAmount = 0.002
-      const amountIn = Math.min(desiredAmount, maxTradeAmount).toString()
+      // Calculate safe amount based on current USDT balance  
+      const usdtBalance = await getTokenBalance(TOKENS.USDT, address)
+      const balanceNumber = parseFloat(usdtBalance)
+      const desiredAmount = 1.0 // 1 USDT for testing
+      const amountIn = Math.min(desiredAmount, balanceNumber).toString()
       
       const swapParams: SwapParams = {
         tokenIn,
@@ -220,7 +266,7 @@ export function TradeExecutionModal({
         amountIn,
         slippageTolerance: 2.0,
         recipient: address,
-        useNativeBNB: true
+        useNativeBNB: false // USDT -> WBNB trade
       }
 
       console.log('📡 Calling executeSwap with params:', swapParams)
@@ -329,11 +375,14 @@ export function TradeExecutionModal({
       return
     }
 
+    // Calculate trade value in USD based on WBNB amount received
+    const tradeValue = parseFloat(state.quote.amountOut) * tradeIdea.entryPrice
+
     const trade: LocalTrade = {
       id: `${address}_${Date.now()}`,
       txHash,
       symbol: 'WBNB/USDT',
-      status: automationTaskIds ? 'monitoring' : 'executed',
+      status: automationTaskIds ? 'monitoring' : 'active',
       entryPrice: tradeIdea.entryPrice,
       currentPrice: tradeIdea.entryPrice,
       takeProfitPrice: tradeIdea.takeProfitPrice,
@@ -343,6 +392,7 @@ export function TradeExecutionModal({
       createdAt: new Date().toISOString(),
       amountIn: state.quote.amountOut, // Dynamic amount based on actual trade
       amountOut: state.quote.amountOut,
+      tradeValue: tradeValue,
       automationTaskIds
     }
 
@@ -394,6 +444,7 @@ export function TradeExecutionModal({
       createdAt: new Date().toISOString(),
       amountIn: '0.01',
       amountOut: '6.18',
+      tradeValue: 6.35,
       automationTaskIds: {
         takeProfitTaskId: 'mock_take_profit_test123',
         stopLossTaskId: 'mock_stop_loss_test456'
@@ -413,6 +464,8 @@ export function TradeExecutionModal({
   if (typeof window !== 'undefined') {
     (window as any).createTestTrade = createTestTrade
   }
+
+
 
   if (!tradeIdea) return null
 
@@ -453,39 +506,30 @@ export function TradeExecutionModal({
               </div>
             </div>
 
-            {/* Swap Details */}
-            {state.quote && (
-              <div className="bg-gray-900 rounded-lg p-4 border border-blue-600">
-                <h3 className="font-semibold text-white mb-3">Swap Details</h3>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-400">You Pay:</span>
-                    <span className="font-medium text-white">100 USDT</span>
-                  </div>
-                  <div className="flex justify-center py-2">
-                    <ArrowRight className="h-4 w-4 text-blue-400" />
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-400">You Receive:</span>
-                    <span className="font-medium text-white">{parseFloat(state.quote.amountOut).toFixed(4)} {getTokenDisplayName(tokenOut)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Minimum Received:</span>
-                    <span className="text-gray-300">{parseFloat(state.quote.amountOutMin).toFixed(4)} {getTokenDisplayName(tokenOut)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Slippage Tolerance:</span>
-                    <span className="text-gray-300">0.5%</span>
-                  </div>
-                </div>
-              </div>
-            )}
-
             {/* AI Reasoning */}
             <div className="bg-gray-900 rounded-lg p-4 border border-purple-600">
               <h3 className="font-semibold text-white mb-2">AI Analysis</h3>
               <p className="text-sm text-gray-300">{tradeIdea.reasoning}</p>
             </div>
+
+            {/* Error Display */}
+            {state.error && (
+              <div className="bg-red-900/20 border border-red-600 rounded-lg p-4">
+                <div className="flex items-center text-red-400 mb-2">
+                  <AlertCircle className="h-4 w-4 mr-2" />
+                  <span className="font-medium">Error</span>
+                </div>
+                <p className="text-red-300 text-sm">{state.error}</p>
+                <Button 
+                  onClick={loadQuoteAndApproval} 
+                  variant="outline" 
+                  size="sm" 
+                  className="mt-3 border-red-600 text-red-400 hover:bg-red-900/30"
+                >
+                  Retry
+                </Button>
+              </div>
+            )}
 
             {/* Action Buttons */}
             <div className="flex space-x-3">
@@ -496,7 +540,7 @@ export function TradeExecutionModal({
                 <Button 
                   onClick={handleApproval}
                   disabled={state.isLoading}
-                                      variant="outline"
+                  variant="outline"
                   className="flex-1"
                 >
                   {state.isLoading ? <LoadingSpinner size="sm" /> : 'Approve USDT'}
@@ -505,10 +549,11 @@ export function TradeExecutionModal({
                 <Button 
                   onClick={handleExecuteSwap}
                   disabled={state.isLoading || !state.quote}
-                                      variant="default"
+                  variant="default"
                   className="flex-1"
+                  title={!state.quote ? 'Loading trade quote...' : undefined}
                 >
-                  {state.isLoading ? <LoadingSpinner size="sm" /> : 'Execute Trade'}
+                  {state.isLoading ? <LoadingSpinner size="sm" /> : !state.quote ? 'Loading...' : 'Execute Trade'}
                 </Button>
               )}
             </div>
@@ -601,7 +646,7 @@ export function TradeExecutionModal({
                 </a>
               )}
             </div>
-                            <Button onClick={handleClose} variant="default" className="w-full">
+            <Button onClick={handleClose} variant="default" className="w-full">
               Close
             </Button>
           </div>
@@ -621,7 +666,7 @@ export function TradeExecutionModal({
               <Button variant="secondary" onClick={handleClose} className="flex-1">
                 Close
               </Button>
-                                <Button onClick={loadQuoteAndApproval} variant="default" className="flex-1">
+              <Button onClick={loadQuoteAndApproval} variant="default" className="flex-1">
                 Try Again
               </Button>
             </div>

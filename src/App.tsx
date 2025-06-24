@@ -4,6 +4,7 @@ import { X, Brain, TrendingUp, Activity, Wallet, BarChart3, Zap, Target, Shield 
 import { usePriceData } from './hooks/usePriceData'
 import { useTradeIdeas } from './hooks/useTradeIdeas'
 import { Button } from './components/ui'
+import { TradeIdeaCard } from './components/TradeIdeaCard'
 import './App.css'
 
 function App() {
@@ -118,13 +119,12 @@ function App() {
       console.log(`✅ Trade action ${action} completed successfully`)
       
       // Show success message
-      if (action === 'execute') {
-        alert('🚀 Trade executed! (Mock execution - in production this would submit a real transaction)')
-      } else if (action === 'monitor') {
+      if (action === 'monitor') {
         alert('👁️ Trade added to monitoring list!')
       } else if (action === 'ignore') {
         alert('❌ Trade idea ignored and removed.')
       }
+      // Note: Execute action success is handled by TradeExecutionModal
       
     } catch (error) {
       console.error(`❌ Error handling trade action ${action}:`, error)
@@ -455,9 +455,23 @@ function App() {
                   <p className="text-white/80 text-sm"><strong className="text-white">Analysis:</strong> {tradeIdeas.currentIdea.reasoning}</p>
                 </div>
                 
+                {/* Use TradeIdeaCard component for proper execute button logic */}
+                <div className="hidden">
+                  <TradeIdeaCard
+                    tradeIdea={tradeIdeas.currentIdea}
+                    isLoading={tradeIdeas.isLoading}
+                    onGenerate={handleGenerateTradeIdea}
+                    onAction={handleTradeAction}
+                  />
+                </div>
+                
                 <div className="flex flex-wrap gap-4">
                   <Button
-                    onClick={() => handleTradeAction('execute')}
+                    onClick={() => {
+                      // Use the TradeIdeaCard's execute logic
+                      const tradeCard = document.querySelector('[data-execute-btn]') as HTMLButtonElement;
+                      if (tradeCard) tradeCard.click();
+                    }}
                     className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
                   >
                     🚀 Execute Trade
@@ -510,6 +524,7 @@ function App() {
                   <th className="px-6 py-4 text-left text-sm font-semibold text-white/80 uppercase tracking-wider">Symbol</th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-white/80 uppercase tracking-wider">Entry</th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-white/80 uppercase tracking-wider">Current</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-white/80 uppercase tracking-wider">Value</th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-white/80 uppercase tracking-wider">Take Profit</th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-white/80 uppercase tracking-wider">Stop Loss</th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-white/80 uppercase tracking-wider">P&L</th>
@@ -519,9 +534,9 @@ function App() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/10">
-                {trades.filter(trade => trade.status === 'monitoring' || trade.status === 'executed').length === 0 ? (
+                {trades.filter(trade => trade.status === 'monitoring' || trade.status === 'executed' || trade.status === 'active').length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="px-6 py-16 text-center">
+                    <td colSpan={10} className="px-6 py-16 text-center">
                       <div className="flex flex-col items-center">
                         <div className="w-20 h-20 bg-white/10 rounded-full flex items-center justify-center mb-6 backdrop-blur-sm">
                           <BarChart3 className="w-10 h-10 text-white/40" />
@@ -533,7 +548,7 @@ function App() {
                   </tr>
                 ) : (
                   trades
-                    .filter(trade => trade.status === 'monitoring' || trade.status === 'executed')
+                    .filter(trade => trade.status === 'monitoring' || trade.status === 'executed' || trade.status === 'active')
                     .slice(0, 10)
                     .map((trade, index) => {
                       const liveCurrentPrice = currentPrice
@@ -557,6 +572,9 @@ function App() {
                           <td className="px-6 py-4 whitespace-nowrap text-white/80">
                             {formatPrice(liveCurrentPrice)}
                           </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-blue-400 font-medium">
+                            {trade.tradeValue ? formatPrice(trade.tradeValue) : '$1.00'}
+                          </td>
                           <td className="px-6 py-4 whitespace-nowrap text-green-400 font-medium">
                             {takeProfitPrice > 0 ? formatPrice(takeProfitPrice) : '-'}
                           </td>
@@ -572,11 +590,11 @@ function App() {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${
-                              trade.status === 'executed' 
+                              trade.status === 'executed' || trade.status === 'active'
                                 ? 'bg-green-500/20 text-green-300 border border-green-500/30' 
                                 : 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30'
                             }`}>
-                              {trade.status === 'executed' ? '🚀 Executed' : '👁️ Monitoring'}
+                              {trade.status === 'executed' || trade.status === 'active' ? '🚀 Active' : '👁️ Monitoring'}
                             </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-white/60">

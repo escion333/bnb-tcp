@@ -30,9 +30,17 @@ FULL_IMAGE="${DOCKERHUB_USER}/${IMAGE_NAME}:${TAG}"
 
 echo -e "${YELLOW}📦 Building production image: ${FULL_IMAGE}${NC}"
 
-# Build the Docker image
-echo -e "${BLUE}Building Docker image...${NC}"
-docker build -t $FULL_IMAGE .
+# Build the Docker image with build arguments for environment variables
+echo -e "${BLUE}Building Docker image with environment variables...${NC}"
+docker build \
+  --build-arg VITE_SUPABASE_URL="${VITE_SUPABASE_URL}" \
+  --build-arg VITE_SUPABASE_ANON_KEY="${VITE_SUPABASE_ANON_KEY}" \
+  --build-arg VITE_OPENAI_API_KEY="${VITE_OPENAI_API_KEY}" \
+  --build-arg VITE_BSC_RPC_URL="${VITE_BSC_RPC_URL:-https://bsc-dataseed1.binance.org/}" \
+  --build-arg VITE_PANCAKESWAP_ROUTER="${VITE_PANCAKESWAP_ROUTER:-0x10ED43C718714eb63d5aA57B78B54704E256024E}" \
+  --build-arg VITE_WBNB_ADDRESS="${VITE_WBNB_ADDRESS:-0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c}" \
+  --build-arg VITE_USDT_ADDRESS="${VITE_USDT_ADDRESS:-0x55d398326f99059fF775485246999027B3197955}" \
+  -t $FULL_IMAGE .
 
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}✅ Docker image built successfully${NC}"
@@ -64,6 +72,13 @@ echo ""
 echo -e "${YELLOW}Next Steps:${NC}"
 echo "1. Upload nodeops-template.yaml to NodeOps marketplace"
 echo "2. Deploy using NodeOps with the image: ${FULL_IMAGE}"
-echo "3. Update environment variables for production"
+echo "3. Set the following environment variables in NodeOps:"
+echo "   - SUPABASE_URL"
+echo "   - SUPABASE_ANON_KEY" 
+echo "   - OPENAI_API_KEY"
+echo "   - BSC_RPC_URL (optional, defaults to public RPC)"
+echo "   - PANCAKESWAP_ROUTER (optional, defaults to mainnet router)"
+echo "   - WBNB_ADDRESS (optional, defaults to mainnet WBNB)"
+echo "   - USDT_ADDRESS (optional, defaults to mainnet USDT)"
 echo ""
 echo -e "${GREEN}🚀 Ready for NodeOps deployment!${NC}" 

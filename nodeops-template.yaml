@@ -15,10 +15,14 @@ services:
     env:
       APP_ENV: "production"
       NODE_ENV: "production"
-      # Add any other environment variables your app needs
-      # VITE_SUPABASE_URL: "{{ .SUPABASE_URL }}"
-      # VITE_SUPABASE_ANON_KEY: "{{ .SUPABASE_ANON_KEY }}"
-      # VITE_OPENAI_API_KEY: "{{ .OPENAI_API_KEY }}"
+      # Required environment variables for trading functionality
+      VITE_SUPABASE_URL: "{{ .SUPABASE_URL }}"
+      VITE_SUPABASE_ANON_KEY: "{{ .SUPABASE_ANON_KEY }}"
+      VITE_OPENAI_API_KEY: "{{ .OPENAI_API_KEY }}"
+      VITE_BSC_RPC_URL: "{{ .BSC_RPC_URL }}"
+      VITE_PANCAKESWAP_ROUTER: "{{ .PANCAKESWAP_ROUTER }}"
+      VITE_WBNB_ADDRESS: "{{ .WBNB_ADDRESS }}"
+      VITE_USDT_ADDRESS: "{{ .USDT_ADDRESS }}"
     resources:
       idle:
         cpu: "100m"

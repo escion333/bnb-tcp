@@ -236,6 +236,7 @@ export function TradeIdeaCard({ tradeIdea, isLoading, onGenerate, onAction }: Tr
               size="sm"
               disabled={!!actionLoading}
               className="flex-1"
+              data-execute-btn
             >
               {actionLoading === 'execute' ? <LoadingSpinner size="sm" /> : 'Execute Trade'}
             </Button>

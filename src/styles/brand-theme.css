@@ -1,0 +1,125 @@
+:root {
+    /* Primary Brand Colors */
+    --brand-yellow: #fdc500;
+    --brand-black: #1e1e1e;
+    --brand-gray: #555555;
+    --brand-light-gray: #d9d9d9;
+    --brand-white: #ffffff;
+  
+    /* Accent Colors */
+    --accent-candle-green: #3cc97f;
+    --accent-candle-red: #e14c4c;
+  
+    /* Typography */
+    --font-family: 'Roboto', sans-serif;
+  }
+  
+  body {
+    font-family: var(--font-family);
+    margin: 0;
+    background-color: var(--brand-white);
+    color: var(--brand-black);
+  }
+  
+  /* Typography */
+  h1 {
+    font-size: 4rem;
+    font-weight: 900;
+    line-height: 1.1;
+    letter-spacing: -1px;
+  }
+  
+  h1 span.yellow {
+    color: var(--brand-yellow);
+  }
+  
+  p {
+    font-size: 1rem;
+    color: var(--brand-gray);
+    line-height: 1.7;
+    max-width: 600px;
+  }
+  
+  /* Button */
+  .button {
+    display: inline-block;
+    background-color: var(--brand-yellow);
+    color: var(--brand-white);
+    padding: 0.75rem 2rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    border: none;
+    border-radius: 0;
+    transition: background-color 0.3s ease;
+    text-decoration: none;
+  }
+  
+  .button:hover {
+    background-color: #e4b000;
+  }
+  
+  /* Layout */
+  .section {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    padding: 3rem 5vw;
+    align-items: center;
+  }
+  
+  .section-text {
+    flex: 1;
+  }
+  
+  .section-image {
+    flex: 1;
+    text-align: right;
+  }
+  
+  .section-image img {
+    max-width: 100%;
+    height: auto;
+  }
+  
+  /* Decorative */
+  .divider {
+    height: 4px;
+    background-color: var(--brand-yellow);
+    margin-top: 2rem;
+  }
+  
+  /* Cards */
+  .card {
+    background-color: var(--brand-light-gray);
+    color: var(--brand-black);
+    padding: 1.5rem;
+    border-radius: 1rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  }
+  
+  /* Candlestick chart coloring */
+  .candle-up {
+    fill: var(--accent-candle-green);
+  }
+  
+  .candle-down {
+    fill: var(--accent-candle-red);
+  }
+  
+  /* Typography Variants */
+  .heading {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+  }
+  
+  .subheading {
+    font-size: 1.25rem;
+    font-weight: 500;
+    margin-bottom: 0.75rem;
+  }
+  
+  .text-muted {
+    color: var(--brand-light-gray);
+  }
+  

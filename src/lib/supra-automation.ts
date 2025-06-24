@@ -142,7 +142,32 @@ class SupraAutomationClient {
     console.log('🤖 Registering Supra Automation for trade:', params.tokenPair)
     
     try {
-      // Register both tasks in parallel
+      // Create task requests for simulation
+      const takeProfitRequest = this.createTakeProfitRequest(params)
+      const stopLossRequest = this.createStopLossRequest(params)
+      
+      // Simulate both tasks before registration
+      console.log('🧪 Pre-simulating Take Profit task...')
+      const tpSimulation = await this.simulateTask(takeProfitRequest)
+      
+      console.log('🧪 Pre-simulating Stop Loss task...')
+      const slSimulation = await this.simulateTask(stopLossRequest)
+      
+      // Check simulation results
+      if (!tpSimulation.success) {
+        console.warn('⚠️ Take Profit simulation warnings:', tpSimulation.errors)
+      }
+      
+      if (!slSimulation.success) {
+        console.warn('⚠️ Stop Loss simulation warnings:', slSimulation.errors)
+      }
+      
+      // Log estimated costs
+      console.log('💰 Estimated costs:')
+      console.log(`   Take Profit: ${tpSimulation.estimatedGas} gas, ${tpSimulation.estimatedFee} fee`)
+      console.log(`   Stop Loss: ${slSimulation.estimatedGas} gas, ${slSimulation.estimatedFee} fee`)
+      
+      // Register both tasks in parallel (even if simulation had warnings)
       const [takeProfitTaskId, stopLossTaskId] = await Promise.all([
         this.registerTakeProfitTask(params),
         this.registerStopLossTask(params)
@@ -159,6 +184,50 @@ class SupraAutomationClient {
     } catch (error) {
       console.error('❌ Trade automation registration failed:', error)
       throw error
+    }
+  }
+
+  /**
+   * Create Take Profit task request
+   */
+  private createTakeProfitRequest(params: TradeAutomationParams): AutomationTaskRequest {
+    const functionId = `${this.MODULE_ADDRESS}::trade_automation::execute_take_profit`
+    
+    return {
+      target_entry_function: functionId,
+      args: {
+        trader: params.walletAddress,
+        token_pair: params.tokenPair,
+        target_price: params.takeProfitPrice.toString(),
+        trade_amount: params.tradeAmount.toString(),
+        slippage_tolerance: (params.slippageTolerance * 100).toString()
+      },
+      expiry_time: this.calculateExpiryTime(48),
+      max_gas_amount: this.DEFAULT_GAS_AMOUNT,
+      gas_price_cap: this.DEFAULT_GAS_PRICE,
+      automation_fee_cap: this.DEFAULT_AUTOMATION_FEE
+    }
+  }
+
+  /**
+   * Create Stop Loss task request
+   */
+  private createStopLossRequest(params: TradeAutomationParams): AutomationTaskRequest {
+    const functionId = `${this.MODULE_ADDRESS}::trade_automation::execute_stop_loss`
+    
+    return {
+      target_entry_function: functionId,
+      args: {
+        trader: params.walletAddress,
+        token_pair: params.tokenPair,
+        target_price: params.stopLossPrice.toString(),
+        trade_amount: params.tradeAmount.toString(),
+        slippage_tolerance: (params.slippageTolerance * 100).toString()
+      },
+      expiry_time: this.calculateExpiryTime(48),
+      max_gas_amount: this.DEFAULT_GAS_AMOUNT,
+      gas_price_cap: this.DEFAULT_GAS_PRICE,
+      automation_fee_cap: this.DEFAULT_AUTOMATION_FEE
     }
   }
 
@@ -325,13 +394,86 @@ class SupraAutomationClient {
     errors?: string[]
   }> {
     console.log('🧪 Simulating automation task...')
+    console.log('🔍 Simulation request:', {
+      function_id: request.target_entry_function,
+      args: request.args,
+      gas_amount: request.max_gas_amount,
+      gas_price: request.gas_price_cap
+    })
     
-    // For now, return optimistic simulation
-    // In production, this would call the actual Supra simulation endpoint
+    try {
+      const apiKey = this.getApiKey()
+      const url = `${this.REST_ENDPOINT}/automation/simulate`
+      
+      const simulationRequest = {
+        ...request,
+        simulate: true // Add simulate flag
+      }
+      
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey
+        },
+        body: JSON.stringify(simulationRequest)
+      })
+
+      if (!response.ok) {
+        console.log('⚠️ Simulation API unavailable, using fallback estimation')
+        return this.fallbackSimulation(request)
+      }
+
+      const data = await response.json()
+      
+      return {
+        success: data.success || true,
+        estimatedGas: data.estimated_gas || request.max_gas_amount,
+        estimatedFee: data.estimated_fee || request.automation_fee_cap,
+        errors: data.errors || []
+      }
+      
+    } catch (error) {
+      console.log('⚠️ Simulation failed, using fallback estimation:', error)
+      return this.fallbackSimulation(request)
+    }
+  }
+
+  /**
+   * Fallback simulation when API is unavailable
+   */
+  private fallbackSimulation(request: AutomationTaskRequest): {
+    success: boolean
+    estimatedGas: number
+    estimatedFee: number
+    errors?: string[]
+  } {
+    // Basic validation checks
+    const errors: string[] = []
+    
+    // Check if function ID looks valid
+    if (!request.target_entry_function.includes('::')) {
+      errors.push('Invalid function ID format')
+    }
+    
+    // Check if gas amount is reasonable
+    if (request.max_gas_amount < 10000) {
+      errors.push('Gas amount may be too low')
+    }
+    
+    // Check expiry time
+    const expiryTime = parseInt(request.expiry_time)
+    const now = Math.floor(Date.now() / 1000)
+    if (expiryTime <= now) {
+      errors.push('Task expiry time is in the past')
+    }
+    
     return {
-      success: true,
-      estimatedGas: this.DEFAULT_GAS_AMOUNT,
-      estimatedFee: this.DEFAULT_AUTOMATION_FEE,
+      success: errors.length === 0,
+      estimatedGas: request.max_gas_amount,
+      estimatedFee: request.automation_fee_cap,
+      errors: errors.length > 0 ? errors : undefined
     }
   }
 
@@ -361,6 +503,58 @@ class SupraAutomationClient {
         status: 'error', 
         message: `Supra Automation health check failed: ${error instanceof Error ? error.message : 'Unknown error'}` 
       }
+    }
+  }
+
+  /**
+   * Simulate trade automation tasks (public method for UI)
+   */
+  async simulateTradeAutomation(params: TradeAutomationParams): Promise<{
+    takeProfitSimulation: {
+      success: boolean
+      estimatedGas: number
+      estimatedFee: number
+      errors?: string[]
+    }
+    stopLossSimulation: {
+      success: boolean
+      estimatedGas: number
+      estimatedFee: number
+      errors?: string[]
+    }
+    totalEstimatedGas: number
+    totalEstimatedFee: number
+  }> {
+    console.log('🧪 Simulating trade automation for:', params.tokenPair)
+    
+    try {
+      // Create task requests
+      const takeProfitRequest = this.createTakeProfitRequest(params)
+      const stopLossRequest = this.createStopLossRequest(params)
+      
+      // Simulate both tasks
+      const [tpSimulation, slSimulation] = await Promise.all([
+        this.simulateTask(takeProfitRequest),
+        this.simulateTask(stopLossRequest)
+      ])
+      
+      const totalEstimatedGas = tpSimulation.estimatedGas + slSimulation.estimatedGas
+      const totalEstimatedFee = tpSimulation.estimatedFee + slSimulation.estimatedFee
+      
+      console.log('🧪 Simulation complete:')
+      console.log(`   Take Profit: ${tpSimulation.success ? '✅' : '⚠️'} ${tpSimulation.estimatedGas} gas`)
+      console.log(`   Stop Loss: ${slSimulation.success ? '✅' : '⚠️'} ${slSimulation.estimatedGas} gas`)
+      console.log(`   Total: ${totalEstimatedGas} gas, ${totalEstimatedFee} fee`)
+      
+      return {
+        takeProfitSimulation: tpSimulation,
+        stopLossSimulation: slSimulation,
+        totalEstimatedGas,
+        totalEstimatedFee
+      }
+    } catch (error) {
+      console.error('❌ Trade automation simulation failed:', error)
+      throw new Error(`Simulation failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
 }
