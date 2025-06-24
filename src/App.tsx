@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAccount, useConnect, useDisconnect, useBalance } from 'wagmi'
-import { X, Brain, TrendingUp, Activity, Wallet, Settings, Bell, ChevronRight, BarChart3, Zap, Target, Shield } from 'lucide-react'
+import { X, Brain, TrendingUp, Activity, Wallet, BarChart3, Zap, Target, Shield } from 'lucide-react'
 import { usePriceData } from './hooks/usePriceData'
 import { useTradeIdeas } from './hooks/useTradeIdeas'
 import { Button } from './components/ui'
@@ -257,22 +257,6 @@ function App() {
         </div>
         
         <div className="flex items-center space-x-4">
-          {/* Status Indicators */}
-          <div className="flex items-center space-x-2 px-3 py-2 rounded-full bg-white/10 backdrop-blur-sm">
-            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse-glow"></div>
-            <span className="text-sm text-white/80">Live</span>
-          </div>
-          
-          {/* Notification Bell */}
-          <button className="p-2 rounded-full bg-white/10 backdrop-blur-sm hover:bg-white/20 transition-all duration-300">
-            <Bell className="w-5 h-5 text-white/80" />
-          </button>
-          
-          {/* Settings */}
-          <button className="p-2 rounded-full bg-white/10 backdrop-blur-sm hover:bg-white/20 transition-all duration-300">
-            <Settings className="w-5 h-5 text-white/80" />
-          </button>
-          
           {/* Wallet Connection */}
           {!isConnected ? (
             <Button
@@ -351,13 +335,12 @@ function App() {
               color: 'from-orange-500 to-red-500'
             }
           ].map((stat, index) => (
-            <div key={index} className="group">
-              <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-6 border border-white/20 hover:bg-white/20 transition-all duration-300 transform hover:scale-105 card-hover">
+            <div key={index}>
+              <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-6 border border-white/20">
                 <div className="flex items-center justify-between mb-4">
                   <div className={`w-12 h-12 rounded-xl bg-gradient-to-r ${stat.color} flex items-center justify-center`}>
                     <stat.icon className="w-6 h-6 text-white" />
                   </div>
-                  <ChevronRight className="w-5 h-5 text-white/40 group-hover:text-white/60 transition-colors duration-200" />
                 </div>
                 <p className="text-white/60 text-sm mb-2">{stat.label}</p>
                 <p className="text-white font-bold text-xl">{stat.value}</p>
@@ -375,10 +358,6 @@ function App() {
                 <Wallet className="w-6 h-6 mr-3 text-purple-400" />
                 Portfolio
               </h3>
-              <div className="flex items-center space-x-2 px-3 py-1 rounded-full bg-green-500/20 border border-green-500/30">
-                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse-glow"></div>
-                <span className="text-green-300 text-sm font-medium">Active</span>
-              </div>
             </div>
             
             <div className="grid grid-cols-3 gap-6">
@@ -412,10 +391,6 @@ function App() {
                   <Brain className="w-6 h-6 mr-3 text-pink-400" />
                   AI Copilot
                 </h3>
-                <div className="flex items-center space-x-2 px-3 py-1 rounded-full bg-purple-500/20 border border-purple-500/30">
-                  <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse-glow"></div>
-                  <span className="text-purple-300 text-sm font-medium">Ready</span>
-                </div>
               </div>
               
               <Button 
@@ -427,7 +402,7 @@ function App() {
                   {tradeIdeas.isLoading ? (
                     <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
                   ) : (
-                    <Brain size={20} className="text-white" />
+                    <div className="w-2 h-2 bg-white rounded-full"></div>
                   )}
                 </div>
                 {tradeIdeas.isLoading ? 'Analyzing Markets...' : 'Generate Trade Idea'}
