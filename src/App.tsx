@@ -398,14 +398,14 @@ function App() {
                 disabled={tradeIdeas.isLoading}
                 className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white py-4 rounded-xl text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 flex items-center justify-center"
               >
-                <div className="w-10 h-10 bg-white/20 rounded-full mr-4 flex items-center justify-center">
-                  {tradeIdeas.isLoading ? (
-                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
-                  ) : (
-                    <div className="w-2 h-2 bg-white rounded-full"></div>
-                  )}
-                </div>
-                {tradeIdeas.isLoading ? 'Analyzing Markets...' : 'Generate Trade Idea'}
+                {tradeIdeas.isLoading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white mr-4"></div>
+                    Analyzing Markets...
+                  </>
+                ) : (
+                  'Generate Trade Idea'
+                )}
               </Button>
             </div>
           </div>
