@@ -38,6 +38,27 @@ VITE_WBNB_ADDRESS=0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c
 VITE_USDT_ADDRESS=0x55d398326f99059fF775485246999027B3197955
 ```
 
+## Setup Instructions
+
+### Using the Environment Template
+
+This repository includes an `env.example` file with all the necessary environment variable templates:
+
+1. **Copy the template:**
+   ```bash
+   cp env.example .env
+   ```
+
+2. **Edit the `.env` file** with your actual values:
+   - Replace `https://your-project-id.supabase.co` with your Supabase project URL
+   - Replace `your-supabase-anon-key` with your Supabase anonymous key
+   - Replace `your-openai-api-key` with your OpenAI API key
+   - Replace `your-supra-api-key` with your Supra Oracle API key (if using)
+
+3. **Never commit the `.env` file** - it contains sensitive information and is already in `.gitignore`
+
+The `env.example` file serves as documentation for all required and optional environment variables.
+
 ## Production Deployment
 
 ### Fix for Missing Trade Execution:
@@ -79,7 +100,7 @@ If trade execution isn't working in production, it's likely due to missing envir
 
 2. **Create environment file:**
    ```bash
-   cp .env.example .env
+   cp env.example .env
    # Edit .env with your values
    ```
 
