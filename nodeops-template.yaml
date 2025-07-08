@@ -1,0 +1,34 @@
+version: 0.1
+
+services:
+  bnb-tcp:
+    image: tsanee9/bnb-tcp:v2
+    imagePullPolicy: Always
+
+    ports:
+      - containerPort: 80
+        protocol: TCP
+        expose: true
+
+    env:
+      - name: VITE_SUPABASE_URL
+        value: "{{.VITE_SUPABASE_URL}}"
+      - name: VITE_SUPABASE_ANON_KEY
+        value: "{{.VITE_SUPABASE_ANON_KEY}}"
+      - name: VITE_OPENAI_API_KEY
+        value: "{{.VITE_OPENAI_API_KEY}}"
+      - name: VITE_BSC_RPC_URL
+        value: "{{.VITE_BSC_RPC_URL}}"
+      - name: VITE_PANCAKESWAP_ROUTER
+        value: "{{.VITE_PANCAKESWAP_ROUTER}}"
+      - name: VITE_WBNB_ADDRESS
+        value: "{{.VITE_WBNB_ADDRESS}}"
+      - name: VITE_USDT_ADDRESS
+        value: "{{.VITE_USDT_ADDRESS}}"
+      - name: NODE_ENV
+        value: production
+
+    resourceUsage:
+      idle:
+        cpu: 500
+        memory: 512
