@@ -2,7 +2,7 @@ version: 0.1
 
 services:
   bnb-tcp:
-    image: tsanee9/bnb-tcp:v4
+    image: tsanee9/bnb-tcp:v5
     imagePullPolicy: Always
 
     ports:
