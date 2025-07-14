@@ -2,7 +2,7 @@ version: 0.1
 
 services:
   bnb-tcp:
-    image: tsanee9/bnb-tcp:v2
+    image: tsanee9/bnb-tcp:v4
     imagePullPolicy: Always
 
     ports:
@@ -10,21 +10,9 @@ services:
         protocol: TCP
         expose: true
 
+    # Environment variables are no longer needed at runtime
+    # as they are embedded during Docker build process
     env:
-      - name: VITE_SUPABASE_URL
-        value: "{{.VITE_SUPABASE_URL}}"
-      - name: VITE_SUPABASE_ANON_KEY
-        value: "{{.VITE_SUPABASE_ANON_KEY}}"
-      - name: VITE_OPENAI_API_KEY
-        value: "{{.VITE_OPENAI_API_KEY}}"
-      - name: VITE_BSC_RPC_URL
-        value: "{{.VITE_BSC_RPC_URL}}"
-      - name: VITE_PANCAKESWAP_ROUTER
-        value: "{{.VITE_PANCAKESWAP_ROUTER}}"
-      - name: VITE_WBNB_ADDRESS
-        value: "{{.VITE_WBNB_ADDRESS}}"
-      - name: VITE_USDT_ADDRESS
-        value: "{{.VITE_USDT_ADDRESS}}"
       - name: NODE_ENV
         value: production
 
@@ -32,3 +20,12 @@ services:
       idle:
         cpu: 500
         memory: 512
+      active:
+        cpu: 1000
+        memory: 1024
+
+    # Health check endpoint available
+    healthCheck:
+      path: /health
+      port: 80
+      protocol: HTTP
