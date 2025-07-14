@@ -23,9 +23,3 @@ services:
       active:
         cpu: 1000
         memory: 1024
-
-    # Health check endpoint available
-    healthCheck:
-      path: /health
-      port: 80
-      protocol: HTTP
