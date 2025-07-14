@@ -20,6 +20,3 @@ services:
       idle:
         cpu: 500
         memory: 512
-      active:
-        cpu: 1000
-        memory: 1024
