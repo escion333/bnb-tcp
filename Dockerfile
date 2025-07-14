@@ -5,14 +5,6 @@ WORKDIR /app
 # Install build dependencies for native npm packages
 RUN apk add --no-cache python3 make g++
 
-# Add build arguments for Supabase environment variables
-ARG VITE_SUPABASE_URL
-ARG VITE_SUPABASE_ANON_KEY
-
-# Set environment variables from build arguments
-ENV VITE_SUPABASE_URL=$VITE_SUPABASE_URL
-ENV VITE_SUPABASE_ANON_KEY=$VITE_SUPABASE_ANON_KEY
-
 # Copy package files first for better Docker layer caching
 COPY package*.json ./
 
@@ -22,8 +14,13 @@ RUN npm install
 # Copy the rest of the application code
 COPY . .
 
-# Build the application with environment variables available
-RUN npm run build
+# Build the application - pass secrets at build time instead
+# Use: docker build --build-arg VITE_SUPABASE_URL=... --build-arg VITE_SUPABASE_ANON_KEY=...
+ARG VITE_SUPABASE_URL
+ARG VITE_SUPABASE_ANON_KEY
+RUN VITE_SUPABASE_URL=$VITE_SUPABASE_URL \
+    VITE_SUPABASE_ANON_KEY=$VITE_SUPABASE_ANON_KEY \
+    npm run build
 
 # Stage 2: Serve with Nginx
 FROM nginx:alpine

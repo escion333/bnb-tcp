@@ -5,9 +5,10 @@ npm-debug.log
 README.md
 .env
 .env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env.development
+.env.production
+.env.test
+!.env.example
 dist
 .vite
 coverage
