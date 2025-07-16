@@ -50,12 +50,16 @@ class SupraAutomationClient {
   private activeTasks: Map<string, AutomationTaskStatus> = new Map()
 
   /**
-   * Get API key from environment variables
+   * Get API key from user configuration
    */
   private getApiKey(): string {
-    const apiKey = import.meta.env.VITE_SUPRA_API_KEY
+    // Import here to avoid circular dependencies
+    const { getUserConfig } = require('./userConfig')
+    const config = getUserConfig()
+    const apiKey = config.supra.apiKey
+    
     if (!apiKey) {
-      throw new Error('VITE_SUPRA_API_KEY not found in environment variables')
+      throw new Error('Supra API key not configured - please set it up in Settings')
     }
     return apiKey
   }

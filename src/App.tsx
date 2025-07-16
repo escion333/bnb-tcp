@@ -5,12 +5,15 @@ import { usePriceData } from './hooks/usePriceData'
 import { useTradeIdeas } from './hooks/useTradeIdeas'
 import { Button } from './components/ui'
 import { TradeIdeaCard } from './components/TradeIdeaCard'
+import { ConfigStatus, ConfigStatusCompact } from './components/ConfigStatus'
+import { useUserConfig } from './contexts/UserConfigContext'
 import './App.css'
 
 function App() {
   const { address, isConnected } = useAccount()
   const { connect, connectors, isPending } = useConnect()
   const { disconnect } = useDisconnect()
+  const { isSetupComplete, isLoading: configLoading } = useUserConfig()
   const { data: bnbBalance } = useBalance({
     address: address,
   })
@@ -257,6 +260,9 @@ function App() {
         </div>
         
         <div className="flex items-center space-x-4">
+          {/* Configuration Status */}
+          <ConfigStatusCompact />
+          
           {/* Wallet Connection */}
           {!isConnected ? (
             <Button
@@ -283,6 +289,11 @@ function App() {
       </nav>
 
       <div className="relative z-10 max-w-7xl mx-auto px-6 py-8">
+        {/* Configuration Status */}
+        <div className="mb-8">
+          <ConfigStatus />
+        </div>
+        
         {/* Hero Section */}
         <div className="text-center mb-12">
           <div className="mb-8">

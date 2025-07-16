@@ -1,4 +1,4 @@
-const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY
+import { getUserConfig } from './userConfig'
 
 export interface TradeIdea {
   symbol: string
@@ -17,8 +17,11 @@ export async function generateTradeIdea(
   symbol: string = 'WBNB/USDT',
   currentPrice: number = 635.50
 ): Promise<TradeIdea> {
+  const config = getUserConfig()
+  const OPENAI_API_KEY = config.ai.openaiApiKey
+  
   if (!OPENAI_API_KEY) {
-    throw new Error('OpenAI API key not configured')
+    throw new Error('OpenAI API key not configured - please set it up in Settings')
   }
 
   const prompt = `You are a professional DeFi trader analyzing ${symbol} at current price $${currentPrice}.

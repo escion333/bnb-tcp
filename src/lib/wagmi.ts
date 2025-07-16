@@ -1,8 +1,15 @@
 import { createConfig, http } from 'wagmi'
 import { bsc } from 'wagmi/chains'
 import { metaMask } from 'wagmi/connectors'
+import { getUserConfig } from './userConfig'
 
-// BSC Mainnet configuration
+// Get dynamic BSC RPC URL
+function getBscRpcUrl(): string {
+  const config = getUserConfig()
+  return config.bsc.rpcUrl || 'https://bsc-dataseed1.binance.org/'
+}
+
+// BSC Mainnet configuration with dynamic RPC
 export const config = createConfig({
   chains: [bsc],
   connectors: [
@@ -14,7 +21,7 @@ export const config = createConfig({
     }),
   ],
   transports: {
-    [bsc.id]: http(import.meta.env.VITE_BSC_RPC_URL || 'https://bsc-dataseed1.binance.org/'),
+    [bsc.id]: http(getBscRpcUrl()),
   },
 })
 

@@ -1,11 +1,48 @@
-import { createClient } from '@supabase/supabase-js';
-import { config } from './config';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { getUserConfig } from './userConfig';
 
-// Create Supabase client
-export const supabase = createClient(
-  config.supabase.url,
-  config.supabase.anonKey
-);
+// Create dynamic Supabase client
+export function createSupabaseClient(): SupabaseClient | null {
+  const config = getUserConfig()
+  
+  if (!config.supabase.url || !config.supabase.anonKey) {
+    console.warn('⚠️ Supabase configuration missing - database features disabled')
+    return null
+  }
+
+  try {
+    return createClient(config.supabase.url, config.supabase.anonKey)
+  } catch (error) {
+    console.error('❌ Failed to create Supabase client:', error)
+    return null
+  }
+}
+
+// Safe Supabase operations with null handling
+export function getSupabaseClient(): SupabaseClient | null {
+  return createSupabaseClient()
+}
+
+// Helper function to check if Supabase is available
+export function isSupabaseAvailable(): boolean {
+  const client = createSupabaseClient()
+  return client !== null
+}
+
+// Helper to execute Supabase operations safely
+async function executeSupabaseOperation<T>(
+  operation: (client: SupabaseClient) => Promise<T>
+): Promise<T> {
+  const client = getSupabaseClient()
+  if (!client) {
+    throw new Error('Supabase not configured - please set up your database connection in Settings')
+  }
+  return await operation(client)
+}
+
+// Legacy export - maintaining for backward compatibility but may be null
+// TODO: Replace all usages with executeSupabaseOperation for proper null handling
+export const supabase = createSupabaseClient() as SupabaseClient;
 
 // Database types (auto-generated later, manual for now)
 export interface Database {
@@ -170,11 +207,16 @@ export interface Database {
   };
 }
 
-// Helper functions
+// Helper functions with null safety
 export const db = {
   // User operations
   async createUser(userId: string, walletAddress: string) {
-    return await supabase
+    const client = getSupabaseClient()
+    if (!client) {
+      throw new Error('Supabase not configured - please set up your database connection')
+    }
+    
+    return await client
       .from('users')
       .insert({
         id: userId,
