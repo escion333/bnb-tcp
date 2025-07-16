@@ -1,8 +1,6 @@
 services:
   defi-trading-copilot:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: bnb-tcp:fresh
     ports:
       - "3000:80"
     environment:

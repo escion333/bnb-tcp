@@ -115,7 +115,7 @@ export function ConfigurationModal({ isOpen, onClose }: ConfigurationModalProps)
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-slate-900 border-gray-700">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Settings className="h-5 w-5" />
@@ -254,7 +254,9 @@ export function ConfigurationModal({ isOpen, onClose }: ConfigurationModalProps)
             {/* Supra Configuration */}
             <div className="space-y-4 border border-gray-700 rounded-lg p-4">
               <h3 className="text-lg font-semibold text-white">Supra Oracle & Automation</h3>
-              <p className="text-sm text-gray-400">Required for real-time price feeds and automated trading</p>
+              <p className="text-sm text-gray-400">
+                Required for automated trading. Price feeds have fallback options (CoinGecko → Mock data).
+              </p>
               
               <div>
                 <Label htmlFor="supra-key">API Key</Label>
@@ -276,6 +278,10 @@ export function ConfigurationModal({ isOpen, onClose }: ConfigurationModalProps)
                     {showPasswords.supraKey ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
                   </Button>
                 </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  • Price feeds: Optional (falls back to CoinGecko if unavailable)<br/>
+                  • Automation: Required for stop-loss/take-profit orders
+                </p>
               </div>
             </div>
 
