@@ -10,8 +10,8 @@ services:
         protocol: TCP
         expose: true
 
-    # Environment variables are no longer needed at runtime
-    # as they are embedded during Docker build process
+    # Configuration is handled through the frontend UI at runtime
+    # No environment variables required - users configure API keys in-app
     env:
       - name: NODE_ENV
         value: production

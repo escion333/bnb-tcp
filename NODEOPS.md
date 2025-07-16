@@ -2,6 +2,10 @@
 
 This guide walks you through deploying the DeFi Trading Co-Pilot to NodeOps Cloud Infrastructure.
 
+## 🎉 NEW: Zero-Config Deployment!
+
+The app now supports **runtime configuration** through the frontend UI! No more build-time environment variables needed - just deploy and configure your API keys through the settings interface.
+
 ## 🚀 Quick Deploy
 
 ### Prerequisites
@@ -120,6 +124,53 @@ This deployment template provides:
 - [NodeOps Documentation](https://docs.nodeops.com)
 - [Docker Best Practices](https://docs.docker.com/develop/best-practices/)
 - [nginx Configuration Guide](https://nginx.org/en/docs/)
+
+---
+
+## 🔧 Post-Deployment Setup (For End Users)
+
+After deploying from the NodeOps marketplace, users need to configure their API keys:
+
+### Step 1: Open the App
+- Visit your deployed app URL from NodeOps
+- You'll see a configuration prompt since no API keys are set
+
+### Step 2: Configure API Keys
+Click the **"Configure Now"** button or **"Setup"** in the header to open the Settings modal:
+
+#### Required Services:
+1. **Supabase Database** (Required)
+   - Go to [supabase.com](https://supabase.com) and create a free account
+   - Create a new project
+   - Get your Project URL and anon key from Settings → API
+
+2. **OpenAI API** (For AI Trade Ideas)
+   - Go to [platform.openai.com](https://platform.openai.com/api-keys)
+   - Create an API key (starts with `sk-`)
+
+3. **Supra Oracle** (For Price Data & Automation)
+   - Go to [supra.com](https://supra.com)
+   - Get an API key for Oracle services
+
+4. **BSC RPC** (Optional)
+   - Default: Free Binance RPC (works fine)
+   - For better performance: Alchemy, Infura, or QuickNode
+
+### Step 3: Save Configuration
+- Click **"Save Configuration"** 
+- Your settings are stored securely in your browser
+- The app will reload with full functionality
+
+### Step 4: Connect Wallet & Trade
+- Connect your MetaMask wallet
+- Generate AI trade ideas
+- Execute trades on PancakeSwap
+- Monitor automated positions
+
+## 🔒 Security Notes
+- API keys are stored locally in your browser (localStorage)
+- Never share your configuration file publicly
+- Use the Export/Import feature to backup settings
 
 ---
 

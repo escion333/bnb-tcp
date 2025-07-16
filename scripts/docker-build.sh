@@ -16,48 +16,12 @@ NC='\033[0m' # No Color
 
 echo -e "${YELLOW}🐳 Building Docker image: $TAG_NAME${NC}"
 
-# Check if .env file exists
-if [ ! -f .env ]; then
-    echo -e "${RED}❌ Error: .env file not found${NC}"
-    echo -e "${YELLOW}💡 Please create a .env file based on env.example${NC}"
-    echo "   cp env.example .env"
-    echo "   # Then edit .env with your actual values"
-    exit 1
-fi
+echo -e "${GREEN}✅ Building without environment variables - configuration handled in frontend${NC}"
 
-# Source environment variables from .env file
-export $(grep -v '^#' .env | xargs)
-
-# Validate required environment variables
-REQUIRED_VARS=(
-    "VITE_SUPABASE_URL"
-    "VITE_SUPABASE_ANON_KEY"
-)
-
-for var in "${REQUIRED_VARS[@]}"; do
-    if [ -z "${!var}" ]; then
-        echo -e "${RED}❌ Error: Required environment variable $var is not set${NC}"
-        exit 1
-    fi
-done
-
-echo -e "${GREEN}✅ Environment variables validated${NC}"
-
-# Build Docker image with all environment variables as build args
+# Build Docker image without build-time environment variables
 echo -e "${YELLOW}🔨 Starting Docker build...${NC}"
 
-docker build \
-    --build-arg VITE_SUPABASE_URL="$VITE_SUPABASE_URL" \
-    --build-arg VITE_SUPABASE_ANON_KEY="$VITE_SUPABASE_ANON_KEY" \
-    --build-arg VITE_BSC_RPC_URL="$VITE_BSC_RPC_URL" \
-    --build-arg VITE_SUPRA_API_KEY="$VITE_SUPRA_API_KEY" \
-    --build-arg VITE_OPENAI_API_KEY="$VITE_OPENAI_API_KEY" \
-    --build-arg VITE_PANCAKESWAP_ROUTER="$VITE_PANCAKESWAP_ROUTER" \
-    --build-arg VITE_VENUS_COMPTROLLER="$VITE_VENUS_COMPTROLLER" \
-    --build-arg VITE_WBNB_ADDRESS="$VITE_WBNB_ADDRESS" \
-    --build-arg VITE_USDT_ADDRESS="$VITE_USDT_ADDRESS" \
-    -t "$TAG_NAME" \
-    .
+docker build -t "$TAG_NAME" .
 
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}✅ Docker image built successfully: $TAG_NAME${NC}"

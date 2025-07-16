@@ -14,13 +14,9 @@ RUN npm install
 # Copy the rest of the application code
 COPY . .
 
-# Build the application - pass secrets at build time instead
-# Use: docker build --build-arg VITE_SUPABASE_URL=... --build-arg VITE_SUPABASE_ANON_KEY=...
-ARG VITE_SUPABASE_URL
-ARG VITE_SUPABASE_ANON_KEY
-RUN VITE_SUPABASE_URL=$VITE_SUPABASE_URL \
-    VITE_SUPABASE_ANON_KEY=$VITE_SUPABASE_ANON_KEY \
-    npm run build
+# Build the application without environment variables
+# Configuration is now handled through frontend UI at runtime
+RUN npm run build
 
 # Stage 2: Serve with Nginx
 FROM nginx:alpine
