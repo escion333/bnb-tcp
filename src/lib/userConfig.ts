@@ -90,16 +90,46 @@ export function getUserConfig(): UserConfig {
  */
 export function saveUserConfig(config: UserConfig): void {
   try {
+    // Test localStorage availability first
+    if (typeof Storage === 'undefined') {
+      throw new Error('localStorage is not supported in this environment')
+    }
+    
+    // Test if we can actually write to localStorage
+    const testKey = 'defi-copilot-test'
+    localStorage.setItem(testKey, 'test')
+    localStorage.removeItem(testKey)
+    
     const configData = {
       version: CONFIG_VERSION,
       config,
       savedAt: new Date().toISOString(),
     }
-    localStorage.setItem(CONFIG_STORAGE_KEY, JSON.stringify(configData))
+    
+    const configString = JSON.stringify(configData)
+    
+    // Check size (localStorage typically has 5-10MB limit)
+    if (configString.length > 1024 * 1024) { // 1MB limit
+      throw new Error('Configuration data is too large to store')
+    }
+    
+    localStorage.setItem(CONFIG_STORAGE_KEY, configString)
     console.log('✅ User configuration saved to localStorage')
+    
+    // Verify the save worked
+    const verification = localStorage.getItem(CONFIG_STORAGE_KEY)
+    if (!verification) {
+      throw new Error('Configuration was not saved properly - verification failed')
+    }
+    
   } catch (error) {
     console.error('❌ Failed to save user config:', error)
-    throw new Error('Failed to save configuration. Please try again.')
+    
+    if (error instanceof Error) {
+      throw error
+    } else {
+      throw new Error('Failed to save configuration. Your browser may have storage restrictions.')
+    }
   }
 }
 
@@ -122,16 +152,19 @@ export function validateConfig(config: UserConfig): ConfigValidation {
   const errors: string[] = []
   const warnings: string[] = []
 
-  // Supabase validation
-  if (!config.supabase.url) {
-    errors.push('Supabase URL is required for trade history and data persistence')
-  } else if (!config.supabase.url.includes('supabase.co')) {
-    warnings.push('Supabase URL should be from supabase.co domain')
+  // Supabase validation (optional - data persisted locally)
+  if (config.supabase.url) {
+    try {
+      new URL(config.supabase.url)
+      if (!config.supabase.url.includes('supabase.co')) {
+        warnings.push('Supabase URL should be from supabase.co domain')
+      }
+    } catch {
+      warnings.push('Supabase URL must be a valid URL')
+    }
   }
 
-  if (!config.supabase.anonKey) {
-    errors.push('Supabase anonymous key is required')
-  } else if (!config.supabase.anonKey.startsWith('eyJ')) {
+  if (config.supabase.anonKey && !config.supabase.anonKey.startsWith('eyJ')) {
     warnings.push('Supabase anonymous key should start with "eyJ"')
   }
 
@@ -144,7 +177,7 @@ export function validateConfig(config: UserConfig): ConfigValidation {
 
   // Supra validation
   if (!config.supra.apiKey) {
-    warnings.push('Supra API key is required for real-time price feeds and automation')
+    warnings.push('Supra API key is required for automated trading features')
   }
 
   // BSC RPC validation
@@ -178,8 +211,8 @@ export function getServiceStatus(config: UserConfig): ServiceStatus {
  */
 export function isConfigured(config: UserConfig): boolean {
   const status = getServiceStatus(config)
-  // Core services required for basic functionality
-  return status.supabase && status.bsc
+  // Core services required for basic functionality (Supabase is optional - using localStorage)
+  return status.bsc
 }
 
 /**
@@ -189,9 +222,9 @@ export function getMissingServices(config: UserConfig): string[] {
   const status = getServiceStatus(config)
   const missing: string[] = []
 
-  if (!status.supabase) missing.push('Supabase (Database)')
+  // Only include essential services (Supabase is optional - using localStorage)
   if (!status.openai) missing.push('OpenAI (AI Trade Ideas)')
-  if (!status.supra) missing.push('Supra (Price Data & Automation)')
+  if (!status.supra) missing.push('Supra (Automation)')
   if (!status.bsc) missing.push('BSC RPC (Blockchain Connection)')
 
   return missing
@@ -240,7 +273,7 @@ export function getSetupInstructions() {
   return {
     supabase: {
       title: 'Supabase Database',
-      description: 'Required for trade history and data persistence',
+      description: 'Optional - for cloud data persistence (trades saved locally by default)',
       steps: [
         '1. Go to https://supabase.com and create a free account',
         '2. Create a new project',
@@ -262,13 +295,13 @@ export function getSetupInstructions() {
       url: 'https://platform.openai.com/api-keys',
     },
     supra: {
-      title: 'Supra Oracle & Automation',
-      description: 'Required for real-time price feeds and automated trading',
+      title: 'Supra Automation',
+      description: 'Required for automated stop-loss and take-profit orders',
       steps: [
         '1. Go to https://supra.com',
         '2. Create a developer account',
         '3. Access the API section',
-        '4. Generate an API key for Oracle and Automation services',
+        '4. Generate an API key for Automation services',
       ],
       url: 'https://supra.com',
     },

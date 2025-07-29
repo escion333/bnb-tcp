@@ -1,5 +1,5 @@
 // Test script for Supra Automation integration
-import { supraAutomation, type TradeAutomationParams } from '../lib/supra-automation'
+import { supraAutomation, type TradeAutomationParams } from '../src/lib/supra-automation'
 
 async function testSupraAutomation() {
   console.log('🤖 Testing Supra Automation Integration...')

@@ -6,7 +6,7 @@ import { useTradeIdeas } from './hooks/useTradeIdeas'
 import { Button } from './components/ui'
 import { TradeIdeaCard } from './components/TradeIdeaCard'
 import { ConfigStatus, ConfigStatusCompact } from './components/ConfigStatus'
-import { useUserConfig } from './contexts/UserConfigContext'
+import { useUserConfig, useServiceStatus } from './contexts/UserConfigContext'
 import './App.css'
 
 function App() {
@@ -14,6 +14,7 @@ function App() {
   const { connect, connectors, isPending } = useConnect()
   const { disconnect } = useDisconnect()
   const { isSetupComplete, isLoading: configLoading } = useUserConfig()
+  const { isOpenAIConfigured } = useServiceStatus()
   const { data: bnbBalance } = useBalance({
     address: address,
   })
@@ -89,7 +90,7 @@ function App() {
       return
     }
     
-    const currentPrice = priceData?.price || 100.22
+    const currentPrice = priceData?.price || 832.21 // Use current BNB price as fallback
     console.log('🤖 Generating trade idea with price:', currentPrice, 'address:', address)
     
     try {
@@ -139,8 +140,24 @@ function App() {
     if (!address) return
     
     try {
-      // Remove trade from localStorage
+      // Get the trade to check if it's a live trade
       const localTrades = JSON.parse(localStorage.getItem('localTrades') || '[]')
+      const trade = localTrades.find((t: any) => t.id === tradeId)
+      
+      if (!trade) {
+        console.log('❌ Trade not found:', tradeId)
+        return
+      }
+      
+      // Check if this is a live trade (has real transaction hash)
+      const isLiveTrade = trade.txHash && !trade.txHash.includes('mock') && trade.txHash.length > 20
+      
+      if (isLiveTrade) {
+        alert('❌ Cannot clear a live trade. Use the "Close Trade" option to swap back to USDT.')
+        return
+      }
+      
+      // Only allow clearing for monitored/paper trades
       const updatedTrades = localTrades.filter((trade: any) => trade.id !== tradeId)
       localStorage.setItem('localTrades', JSON.stringify(updatedTrades))
       
@@ -148,18 +165,162 @@ function App() {
       const userTrades = updatedTrades.filter((trade: any) => trade.id.startsWith(address))
       setTrades(userTrades)
       
-      console.log(`✅ Trade ${tradeId} removed from history`)
+      console.log(`✅ Monitored trade ${tradeId} cleared from history`)
     } catch (error) {
       console.error('❌ Error removing trade:', error)
     }
   }
 
-  const currentPrice = priceData?.price || 100.22
-  const priceChange = priceData?.changePercent24h || 4.54
+  const handleCloseTrade = async (tradeId: string) => {
+    if (!address) return
+    
+    try {
+      // Get the trade details
+      const localTrades = JSON.parse(localStorage.getItem('localTrades') || '[]')
+      const trade = localTrades.find((t: any) => t.id === tradeId)
+      
+      if (!trade) {
+        console.log('❌ Trade not found:', tradeId)
+        return
+      }
+      
+      // Check if this is actually a live trade
+      const isLiveTrade = trade.txHash && !trade.txHash.includes('mock') && trade.txHash.length > 20
+      
+      if (!isLiveTrade) {
+        alert('❌ This is not a live trade. Use the "Clear" option to remove it from history.')
+        return
+      }
+      
+      if (!confirm('🔄 This will swap your WBNB back to USDT at current market price. Continue?')) {
+        return
+      }
+      
+      console.log('🔄 Closing live trade by swapping back to USDT...')
+      
+      // Import required functions dynamically to avoid circular dependencies
+      const { executeSwap, getSwapQuote, getTokenBalance, checkTokenApproval, approveToken } = await import('./lib/pancakeswap')
+      const { TOKENS } = await import('./lib/pancakeswap')
+      
+      // Get current WBNB balance to determine how much to swap
+      const wbnbBalance = await getTokenBalance(TOKENS.WBNB, address)
+      const wbnbBalanceNumber = parseFloat(wbnbBalance)
+      
+      if (wbnbBalanceNumber <= 0) {
+        alert('❌ No WBNB balance found to swap back to USDT')
+        return
+      }
+      
+      // Use the exact amount from the trade if available, otherwise use available balance
+      // Parse the amount properly to avoid precision issues
+      let amountToSwap: string
+      if (trade.amountOut && parseFloat(trade.amountOut) <= wbnbBalanceNumber) {
+        amountToSwap = trade.amountOut
+      } else {
+        // Use 99% of available balance to account for potential precision issues
+        amountToSwap = (wbnbBalanceNumber * 0.99).toFixed(6)
+      }
+      
+      console.log(`📊 Swapping ${amountToSwap} WBNB back to USDT`)
+      
+      const swapParams = {
+        tokenIn: TOKENS.WBNB,
+        tokenOut: TOKENS.USDT,
+        amountIn: amountToSwap,
+        slippageTolerance: 2.5, // Slightly higher slippage for market orders
+        recipient: address,
+        useNativeBNB: false
+      }
+      
+      // Check if WBNB needs approval for spending
+      console.log('🔍 Checking WBNB approval for PancakeSwap...')
+      const approval = await checkTokenApproval(TOKENS.WBNB, address, amountToSwap)
+      
+      if (approval.needsApproval) {
+        console.log('📝 WBNB approval needed, requesting approval...')
+        
+        if (!confirm('🔐 Your WBNB needs to be approved for swapping. This will require a separate transaction. Continue?')) {
+          return
+        }
+        
+        try {
+          const approvalTxHash = await approveToken(TOKENS.WBNB, amountToSwap)
+          console.log('✅ WBNB approval transaction submitted:', approvalTxHash)
+          
+          alert('🔐 Approval transaction submitted. Please wait a moment, then try closing the trade again.')
+          return // Exit here, user needs to try again after approval confirms
+          
+        } catch (approvalError) {
+          console.error('❌ Failed to approve WBNB:', approvalError)
+          alert(`❌ Failed to approve WBNB: ${approvalError instanceof Error ? approvalError.message : String(approvalError)}`)
+          return
+        }
+      }
+      
+      console.log('📡 Getting swap quote for close trade:', swapParams)
+      const quote = await getSwapQuote(swapParams)
+      console.log('💱 Quote received:', quote)
+      
+      console.log('🚀 Executing close trade swap...')
+      const closeTxHash = await executeSwap(swapParams)
+      
+      // Update trade status to closed
+      const updatedTrades = localTrades.map((t: any) => 
+        t.id === tradeId 
+          ? { 
+              ...t, 
+              status: 'closed', 
+              closedAt: new Date().toISOString(),
+              exitTxHash: closeTxHash,
+              // Calculate realized PnL: USDT received - USDT spent
+              realizedPnl: parseFloat(quote.amountOut) - parseFloat(trade.amountIn || '0')
+            }
+          : t
+      )
+      
+      localStorage.setItem('localTrades', JSON.stringify(updatedTrades))
+      
+      // Update state
+      const userTrades = updatedTrades.filter((trade: any) => trade.id.startsWith(address))
+      setTrades(userTrades)
+      
+      const pnlText = trade.realizedPnl >= 0 ? `+$${trade.realizedPnl.toFixed(2)}` : `-$${Math.abs(trade.realizedPnl).toFixed(2)}`
+      alert(`✅ Trade closed successfully!\n💰 Received: ${parseFloat(quote.amountOut).toFixed(2)} USDT\n📈 P&L: ${pnlText}\n🔗 Tx: ${closeTxHash}`)
+      console.log(`✅ Live trade ${tradeId} closed with tx: ${closeTxHash}`)
+      
+    } catch (error) {
+      console.error('❌ Error closing trade:', error)
+      
+      // Provide more specific error messages
+      let errorMessage = 'Unknown error occurred'
+      if (error instanceof Error) {
+        if (error.message.includes('insufficient funds')) {
+          errorMessage = 'Insufficient funds for transaction'
+        } else if (error.message.includes('approval')) {
+          errorMessage = 'Token approval failed'
+        } else if (error.message.includes('slippage')) {
+          errorMessage = 'Price moved too much (slippage exceeded). Try again.'
+        } else {
+          errorMessage = error.message
+        }
+      }
+      
+      alert(`❌ Failed to close trade: ${errorMessage}`)
+    }
+  }
+
+  const currentPrice = priceData?.price || 832.21 // Use current BNB price as fallback
+  const priceChange = priceData?.changePercent24h || 0
 
   // Calculate portfolio data from trades and wallet balance
-  const activeTrades = trades.filter(trade => trade.status === 'monitoring' || trade.status === 'executed')
-  const activePositions = trades.filter(trade => trade.status === 'executed').length
+  // Only include live trades (active/executed) with real transaction hashes, not paper trades (monitoring)
+  const activeTrades = trades.filter(trade => {
+    // Check if it's a live trade with real transaction hash
+    const isLiveTrade = trade.txHash && !trade.txHash.includes('mock') && trade.txHash.length > 20
+    // Only include live trades that are active or executed
+    return isLiveTrade && (trade.status === 'active' || trade.status === 'executed')
+  })
+  const activePositions = activeTrades.length
   
   // Calculate total wallet value in USD
   const walletBalanceUSD = (() => {
@@ -195,9 +356,17 @@ function App() {
   
   const portfolioStats = activeTrades.reduce((acc, trade) => {
     const entryPrice = trade.entryPrice || 0
-    const positionSize = 100 // Mock position size of $100 per trade for P&L calc
     
     if (entryPrice > 0) {
+      // For live trades, use actual trade value if available
+      let positionSize = 100 // Default fallback
+      if (trade.tradeValue && trade.tradeValue > 0) {
+        positionSize = trade.tradeValue
+      } else if (trade.amountIn && parseFloat(trade.amountIn) > 0) {
+        // Use the USDT amount spent on the trade
+        positionSize = parseFloat(trade.amountIn)
+      }
+      
       const pnlPercent = ((currentPrice - entryPrice) / entryPrice) * 100
       const pnlAmount = (positionSize * pnlPercent) / 100
       acc.totalPnl += pnlAmount
@@ -260,9 +429,6 @@ function App() {
         </div>
         
         <div className="flex items-center space-x-4">
-          {/* Configuration Status */}
-          <ConfigStatusCompact />
-          
           {/* Wallet Connection */}
           {!isConnected ? (
             <Button
@@ -385,6 +551,7 @@ function App() {
                 }`}>
                   {portfolioStats.totalPnl >= 0 ? '+' : ''}${formatLargeNumber(portfolioStats.totalPnl)}
                 </p>
+                <p className="text-xs text-white/40 mt-1">Live trades only</p>
               </div>
               <div className="text-center">
                 <p className="text-white/60 text-sm mb-2">Active Positions</p>
@@ -406,14 +573,21 @@ function App() {
               
               <Button 
                 onClick={handleGenerateTradeIdea}
-                disabled={tradeIdeas.isLoading}
-                className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white py-4 rounded-xl text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 flex items-center justify-center"
+                disabled={tradeIdeas.isLoading || !isOpenAIConfigured}
+                className={`w-full py-4 rounded-xl text-lg font-semibold shadow-lg transition-all duration-300 flex items-center justify-center ${
+                  !isOpenAIConfigured 
+                    ? 'bg-gray-600 cursor-not-allowed text-gray-300' 
+                    : 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white hover:shadow-xl transform hover:scale-105'
+                }`}
+                title={!isOpenAIConfigured ? 'OpenAI API key required for AI trade ideas' : undefined}
               >
                 {tradeIdeas.isLoading ? (
                   <>
                     <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white mr-4"></div>
                     Analyzing Markets...
                   </>
+                ) : !isOpenAIConfigured ? (
+                  'Set up API Keys'
                 ) : (
                   'Generate Trade Idea'
                 )}
@@ -539,15 +713,15 @@ function App() {
                   <th className="px-6 py-4 text-left text-sm font-semibold text-white/80 uppercase tracking-wider">Stop Loss</th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-white/80 uppercase tracking-wider">P&L</th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-white/80 uppercase tracking-wider">Value</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-white/80 uppercase tracking-wider">Task IDs</th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-white/80 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-white/80 uppercase tracking-wider">Date</th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-white/80 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/10">
                 {trades.filter(trade => trade.status === 'monitoring' || trade.status === 'executed' || trade.status === 'active').length === 0 ? (
                   <tr>
-                    <td colSpan={11} className="px-6 py-16 text-center">
+                    <td colSpan={10} className="px-6 py-16 text-center">
                       <div className="flex flex-col items-center">
                         <div className="w-20 h-20 bg-white/10 rounded-full flex items-center justify-center mb-6 backdrop-blur-sm">
                           <BarChart3 className="w-10 h-10 text-white/40" />
@@ -599,20 +773,6 @@ function App() {
                           <td className="px-6 py-4 whitespace-nowrap">
                             {trade.tradeValue ? formatPrice(trade.tradeValue) : '$1.00'}
                           </td>
-                                                     <td className="px-6 py-4 whitespace-nowrap text-purple-400 font-mono text-xs">
-                             {trade.automationTaskIds ? (
-                               <div className="space-y-1">
-                                 <div title={`Take Profit: ${trade.automationTaskIds.takeProfitTaskId}`}>
-                                   TP: {trade.automationTaskIds.takeProfitTaskId.slice(-8)}
-                                 </div>
-                                 <div title={`Stop Loss: ${trade.automationTaskIds.stopLossTaskId}`}>
-                                   SL: {trade.automationTaskIds.stopLossTaskId.slice(-8)}
-                                 </div>
-                               </div>
-                             ) : (
-                               <span className="text-gray-500">-</span>
-                             )}
-                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${
                               trade.status === 'executed' || trade.status === 'active'
@@ -626,13 +786,33 @@ function App() {
                             {trade.createdAt ? formatDate(trade.createdAt) : new Date().toLocaleDateString()}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-center">
-                            <button
-                              onClick={() => handleRemoveTrade(trade.id)}
-                              className="text-white/40 hover:text-red-400 transition-colors duration-200 p-2 rounded-full hover:bg-red-500/20"
-                              title="Remove trade"
-                            >
-                              <X size={16} />
-                            </button>
+                            {(() => {
+                              // Determine if this is a live trade (has real transaction hash)
+                              const isLiveTrade = trade.txHash && !trade.txHash.includes('mock') && trade.txHash.length > 20
+                              
+                              if (isLiveTrade) {
+                                return (
+                                  <button
+                                    onClick={() => handleCloseTrade(trade.id)}
+                                    className="text-white/40 hover:text-orange-400 transition-colors duration-200 p-2 rounded-full hover:bg-orange-500/20 flex items-center gap-1 text-xs"
+                                    title="Close trade (swap back to USDT)"
+                                  >
+                                    🔄 Close
+                                  </button>
+                                )
+                              } else {
+                                return (
+                                  <button
+                                    onClick={() => handleRemoveTrade(trade.id)}
+                                    className="text-white/40 hover:text-red-400 transition-colors duration-200 p-2 rounded-full hover:bg-red-500/20 flex items-center gap-1 text-xs"
+                                    title="Clear from history"
+                                  >
+                                    <X size={14} />
+                                    Clear
+                                  </button>
+                                )
+                              }
+                            })()}
                           </td>
                         </tr>
                       )

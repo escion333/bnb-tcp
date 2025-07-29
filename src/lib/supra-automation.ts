@@ -1,6 +1,8 @@
 // Supra Automation Integration for Take Profit/Stop Loss
 // Using Supra's native execution engine for automated trade management
 
+import { getUserConfig } from './userConfig'
+
 interface AutomationTaskRequest {
   target_entry_function: string
   args: Record<string, any>
@@ -53,8 +55,6 @@ class SupraAutomationClient {
    * Get API key from user configuration
    */
   private getApiKey(): string {
-    // Import here to avoid circular dependencies
-    const { getUserConfig } = require('./userConfig')
     const config = getUserConfig()
     const apiKey = config.supra.apiKey
     

@@ -2,33 +2,28 @@
 
 > **AI-powered DeFi trading assistant with real-time market analysis and automated trade execution on Binance Smart Chain.**
 
-A sophisticated trading interface that combines artificial intelligence with decentralized finance to provide intelligent trading recommendations, automated execution, and comprehensive portfolio management.
-
 ## ✨ Features
 
 ### 🤖 **AI-Powered Trading**
-- GPT-4 powered trade idea generation with technical analysis
-- Real-time market sentiment analysis and risk assessment
-- Intelligent entry/exit point recommendations
-- Confidence scoring and timeframe suggestions
+- Real-time price feeds from CoinGecko
+- AI-powered trade recommendations via OpenAI GPT-4
+- Automated stop-loss/take-profit via Supra Automation
+- One-click trade execution through PancakeSwap
+- Comprehensive trade history and portfolio tracking
+- Web3 wallet integration (MetaMask, WalletConnect)
+- Responsive design for desktop and mobile
 
 ### 📊 **Advanced Market Data**
-- Real-time price feeds from Supra Oracle with CoinGecko fallback
-- Live 24h price changes, highs/lows, volume, and market cap
-- Multi-source data aggregation for reliability
-- 5-second update intervals for real-time monitoring
+- **Real-time BNB/USD pricing** from CoinGecko API
+- **24h price changes, volume, and market cap** data  
+- **Automated price updates** every 60 seconds
+- **Professional-grade price feeds** for accurate trading
 
-### 🔄 **Automated Trading Execution**
-- Direct PancakeSwap integration for instant trade execution
-- Automated stop-loss and take-profit orders via Supra Automation
-- Position monitoring and real-time trade tracking
-- Smart slippage management and gas optimization
-
-### 💡 **Risk Management**
-- Intelligent stop-loss recommendations based on support levels
-- Take-profit targets using resistance analysis
-- Risk-reward ratio calculations and position sizing
-- Portfolio performance tracking with P&L analysis
+### 🛡️ **Smart Risk Management**
+- **Automated stop-loss orders** via Supra Automation
+- **Take-profit automation** with configurable targets
+- **Risk/reward ratio calculations** for every trade
+- **Portfolio tracking** with real-time P&L
 
 ### 🎨 **Modern Interface**
 - Responsive design optimized for desktop and mobile
@@ -161,8 +156,7 @@ src/
 │   ├── usePriceData.ts
 │   └── useTradeIdeas.ts
 ├── lib/                # Core business logic
-│   ├── supra.ts        # Supra Oracle integration
-│   ├── supra-automation.ts
+│   ├── supra-automation.ts # Supra Automation integration
 │   ├── openai.ts       # AI integration
 │   ├── pancakeswap.ts  # DEX integration
 │   └── ...
@@ -175,7 +169,7 @@ src/
 
 ### NodeOps Deployment (Recommended)
 
-See [NODEOPS.md](./NODEOPS.md) for detailed NodeOps deployment instructions.
+See [docs/NODEOPS.md](./docs/NODEOPS.md) for detailed NodeOps deployment instructions.
 
 ### Docker Hub Deployment
 
@@ -207,9 +201,9 @@ curl http://your-app-url/health
 - ✅ Check browser console for error messages
 
 **❌ Price data not loading:**
-- ✅ Supra Oracle will fallback to CoinGecko automatically
-- ✅ Check network connectivity
-- ✅ Verify no ad blockers are blocking API calls
+- ✅ Check network connectivity  
+- ✅ Verify CoinGecko API is accessible
+- ✅ Check browser console for API errors
 
 **❌ AI trade ideas not generating:**
 - ✅ Verify OpenAI API key is correctly configured
@@ -237,11 +231,12 @@ localStorage.setItem('debug', 'true')
 - **Blockchain**: Wagmi + Viem for BSC interaction
 - **AI**: OpenAI GPT-4 for market analysis
 - **Database**: Supabase (PostgreSQL) for persistence
-- **Oracle**: Supra Oracle with CoinGecko fallback
+- **Price Data**: CoinGecko API for real-time BNB pricing
+- **Automation**: Supra Automation for stop-loss/take-profit orders
 - **Deployment**: Docker + nginx with multi-platform support
 
 ### Data Flow
-1. **Price Data**: Supra Oracle → CoinGecko → Mock (fallback chain)
+1. **Price Data**: CoinGecko API for real-time BNB/USD pricing
 2. **AI Analysis**: OpenAI GPT-4 processes market data and user requests
 3. **Trade Execution**: Wagmi → MetaMask → PancakeSwap Router
 4. **Automation**: Supra Automation for stop-loss/take-profit orders
@@ -283,6 +278,4 @@ MIT License - see [LICENSE](./LICENSE) file for details.
 - **Supabase** for database services
 - **NodeOps** for decentralized deployment platform
 
----
 
-**⚡ Ready to start AI-powered DeFi trading? Deploy now and configure through the intuitive web interface!**

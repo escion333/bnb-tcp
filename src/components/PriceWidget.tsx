@@ -1,9 +1,22 @@
 import { usePriceData } from '../hooks/usePriceData'
 import { TrendingUp, TrendingDown, RefreshCw, AlertCircle } from 'lucide-react'
 import { Button } from './ui'
+import { useEffect } from 'react'
 
 export function PriceWidget() {
   const { priceData, isLoading, error, refetch } = usePriceData()
+
+  // Debug logging
+  useEffect(() => {
+    console.log('🔍 PriceWidget Debug:', {
+      priceData,
+      isLoading,
+      error,
+      hasData: !!priceData,
+      price: priceData?.price,
+      source: priceData?.source
+    })
+  }, [priceData, isLoading, error])
 
   const formatPrice = (price: number) => {
     return price.toFixed(2)
@@ -33,10 +46,8 @@ export function PriceWidget() {
 
   const getSourceInfo = (source: string) => {
     switch (source) {
-      case 'supra': return { label: 'Supra Oracle', color: 'text-purple-500' }
-      case 'coingecko': return { label: 'CoinGecko', color: 'text-blue-500' }
-      case 'mock': return { label: 'Mock Data', color: 'text-yellow-500' }
-      default: return { label: 'Unknown', color: 'text-muted-foreground' }
+      case 'coingecko': return { label: 'CoinGecko', color: 'text-green-500' }
+      default: return { label: 'Unknown', color: 'text-gray-500' }
     }
   }
 

@@ -8,7 +8,7 @@ export function useTradeIdeas(walletAddress?: string) {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const generateNewIdea = async (symbol: string = 'WBNB/USDT', currentPrice: number = 635.50) => {
+  const generateNewIdea = async (symbol: string = 'WBNB/USDT', currentPrice: number = 832.21) => {
     setIsLoading(true)
     setError(null)
     setCurrentIdea(null)

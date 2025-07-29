@@ -45,7 +45,6 @@ export function UserConfigProvider({ children }: UserConfigProviderProps) {
       const initialConfig = getUserConfig()
       setConfig(initialConfig)
       console.log('✅ User configuration loaded:', {
-        hasSupabase: !!initialConfig.supabase.url,
         hasOpenAI: !!initialConfig.ai.openaiApiKey,
         hasSupra: !!initialConfig.supra.apiKey,
         hasCustomRPC: initialConfig.bsc.rpcUrl !== 'https://bsc-dataseed1.binance.org/',
@@ -71,7 +70,13 @@ export function UserConfigProvider({ children }: UserConfigProviderProps) {
   const resetConfig = () => {
     try {
       clearUserConfig()
-      const defaultConfig = getUserConfig()
+      // Force empty default config instead of falling back to env vars
+      const defaultConfig = {
+        supabase: { url: '', anonKey: '' },
+        ai: { openaiApiKey: '' },
+        supra: { apiKey: '' },
+        bsc: { rpcUrl: 'https://bsc-dataseed1.binance.org/' }
+      }
       setConfig(defaultConfig)
       console.log('✅ Configuration reset to defaults')
     } catch (error) {
@@ -110,13 +115,15 @@ export function useUserConfig(): UserConfigContextType {
 export function useServiceStatus() {
   const { serviceStatus } = useUserConfig()
   
+  // Filter out supabase from service status checks
+  const { supabase, ...relevantServices } = serviceStatus
+  
   return {
-    isSupabaseConfigured: serviceStatus.supabase,
     isOpenAIConfigured: serviceStatus.openai,
     isSupraConfigured: serviceStatus.supra,
     isBSCConfigured: serviceStatus.bsc,
-    isAnyServiceConfigured: Object.values(serviceStatus).some(Boolean),
-    areAllServicesConfigured: Object.values(serviceStatus).every(Boolean),
+    isAnyServiceConfigured: Object.values(relevantServices).some(Boolean),
+    areAllServicesConfigured: Object.values(relevantServices).every(Boolean),
   }
 }
 

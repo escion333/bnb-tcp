@@ -7,7 +7,6 @@ import { ConfigurationModal } from './ConfigurationModal'
 export function ConfigStatus() {
   const { isSetupComplete, missingServices } = useUserConfig()
   const {
-    isSupabaseConfigured,
     isOpenAIConfigured,
     isSupraConfigured,
     isBSCConfigured,
@@ -20,17 +19,30 @@ export function ConfigStatus() {
   if (areAllServicesConfigured) {
     return (
       <>
-        <div className="flex items-center gap-2 text-green-400">
-          <CheckCircle2 className="h-4 w-4" />
-          <span className="text-sm">All services configured</span>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setIsConfigModalOpen(true)}
-            className="h-6 w-6 p-0 ml-1"
-          >
-            <Settings className="h-3 w-3" />
-          </Button>
+        <div className="flex items-center justify-between w-full">
+          <div className="flex items-center gap-2 text-green-400">
+            <CheckCircle2 className="h-4 w-4" />
+            <span className="text-sm">All services configured</span>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsConfigModalOpen(true)}
+              className="h-6 w-6 p-0 ml-1"
+            >
+              <Settings className="h-3 w-3" />
+            </Button>
+          </div>
+          
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-1">
+              <span className="text-sm text-slate-400">Network:</span>
+              <span className="text-sm text-white font-medium">BNB</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="text-sm text-slate-400">Trading Venue:</span>
+              <span className="text-sm text-white font-medium">Pancake Swap</span>
+            </div>
+          </div>
         </div>
         <ConfigurationModal
           isOpen={isConfigModalOpen}
@@ -85,11 +97,10 @@ export function ConfigStatus() {
           <div className="flex items-center gap-3">
             <AlertTriangle className="h-4 w-4 text-yellow-500 flex-shrink-0" />
             <div>
-              <h4 className="font-medium text-yellow-400">Partial Configuration</h4>
+              <h4 className="font-medium text-yellow-400">Set up of API Keys Required</h4>
               <div className="flex items-center gap-3 text-sm">
-                <ServiceIndicator label="DB" isConfigured={isSupabaseConfigured} />
                 <ServiceIndicator label="AI" isConfigured={isOpenAIConfigured} />
-                <ServiceIndicator label="Oracle" isConfigured={isSupraConfigured} />
+                <ServiceIndicator label="Automation" isConfigured={isSupraConfigured} />
                 <ServiceIndicator label="RPC" isConfigured={isBSCConfigured} />
               </div>
             </div>
@@ -135,35 +146,31 @@ function ServiceIndicator({ label, isConfigured }: ServiceIndicatorProps) {
 // Compact version for header/toolbar use
 export function ConfigStatusCompact() {
   const { areAllServicesConfigured } = useServiceStatus()
-  const [isConfigModalOpen, setIsConfigModalOpen] = useState(false)
 
   return (
-    <>
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => setIsConfigModalOpen(true)}
-        className={`h-8 ${
-          areAllServicesConfigured 
-            ? 'text-green-400 hover:text-green-300' 
-            : 'text-yellow-400 hover:text-yellow-300'
-        }`}
-      >
-        <Settings className="h-4 w-4 mr-1" />
-        {areAllServicesConfigured ? 'Settings' : 'Setup'}
-      </Button>
-      <ConfigurationModal
-        isOpen={isConfigModalOpen}
-        onClose={() => setIsConfigModalOpen(false)}
-      />
-    </>
+    <div className={`flex items-center gap-2 text-sm ${
+      areAllServicesConfigured 
+        ? 'text-green-400' 
+        : 'text-yellow-400'
+    }`}>
+      {areAllServicesConfigured ? (
+        <>
+          <CheckCircle2 className="h-4 w-4" />
+          <span>All services configured</span>
+        </>
+      ) : (
+        <>
+          <AlertTriangle className="h-4 w-4" />
+          <span>Setup required</span>
+        </>
+      )}
+    </div>
   )
 }
 
 // Feature-specific status indicators
 export function FeatureStatus({ feature }: { feature: 'ai' | 'trading' | 'data' }) {
   const {
-    isSupabaseConfigured,
     isOpenAIConfigured,
     isSupraConfigured,
     isBSCConfigured,
@@ -187,9 +194,9 @@ export function FeatureStatus({ feature }: { feature: 'ai' | 'trading' | 'data' 
         }
       case 'data':
         return {
-          isReady: isSupabaseConfigured && isSupraConfigured,
+          isReady: isSupraConfigured,
           name: 'Data & Analytics',
-          description: 'Supabase + Supra required',
+          description: 'Supra required',
         }
       default:
         return { isReady: false, name: 'Unknown', description: '' }

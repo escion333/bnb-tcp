@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Modal } from './ui/Modal'
 import { Button, LoadingSpinner } from './ui'
+import { Input } from './ui/input'
 import { useAccount } from 'wagmi'
 import type { TradeIdea } from '../lib/openai'
 import { 
@@ -15,7 +16,7 @@ import {
   getTokenBalance
 } from '../lib/pancakeswap'
 import { supraAutomation, type TradeAutomationParams } from '../lib/supra-automation'
-import { AlertCircle, ArrowRight, CheckCircle, ExternalLink, Bot } from 'lucide-react'
+import { AlertCircle, ArrowRight, CheckCircle, ExternalLink, Bot, TrendingUp, TrendingDown } from 'lucide-react'
 
 interface TradeExecutionModalProps {
   isOpen: boolean
@@ -60,7 +61,7 @@ interface LocalTrade {
   id: string
   txHash: string
   symbol: string
-  status: 'active' | 'monitoring'
+  status: 'active' | 'monitoring' | 'closed' // 'active' = live trade, 'monitoring' = paper/watch-only, 'closed' = completed
   entryPrice: number
   currentPrice: number
   takeProfitPrice: number
@@ -93,6 +94,12 @@ export function TradeExecutionModal({
     needsApproval: false
   })
 
+  // Editable TP/SL state
+  const [editableTakeProfit, setEditableTakeProfit] = useState<string>('')
+  const [editableStopLoss, setEditableStopLoss] = useState<string>('')
+  const [tradeAmount, setTradeAmount] = useState<string>('0') // Default 0 USDT
+  const [walletBalance, setWalletBalance] = useState<string>('0')
+
   // Define the tokens we're trading (consistent across the component)
   const tokenIn = TOKENS.USDT // Use USDT to buy WBNB (LONG position)
   const tokenOut = TOKENS.WBNB // Get WBNB output (we're going LONG on WBNB)
@@ -108,9 +115,24 @@ export function TradeExecutionModal({
         quote: null,
         needsApproval: false
       })
+      // Initialize editable values with trade idea values
+      setEditableTakeProfit(tradeIdea.takeProfitPrice?.toString() || '')
+      setEditableStopLoss(tradeIdea.stopLossPrice?.toString() || '')
+      setTradeAmount('0') // Reset trade amount to 0 when modal opens
       loadQuoteAndApproval()
     }
   }, [isOpen, tradeIdea])
+
+  // Update quote when trade amount changes (with debouncing)
+  useEffect(() => {
+    if (isOpen && tradeIdea && address && tradeAmount) {
+      const timeoutId = setTimeout(() => {
+        loadQuoteAndApproval()
+      }, 500)
+      
+      return () => clearTimeout(timeoutId)
+    }
+  }, [tradeAmount, isOpen, tradeIdea, address])
 
   const loadQuoteAndApproval = async () => {
     if (!tradeIdea || !address) {
@@ -128,25 +150,27 @@ export function TradeExecutionModal({
       const balanceNumber = parseFloat(usdtBalance)
       console.log('💰 Current USDT balance:', balanceNumber)
       
+      // Store balance for display and validation
+      setWalletBalance(usdtBalance)
+      
       // For USDT trades, we need BNB for gas fees
       const bnbBalance = await getTokenBalance(TOKENS.NATIVE_BNB, address)
       const bnbBalanceNumber = parseFloat(bnbBalance)
       
-      // Check if user has enough BNB for gas (need at least 0.002 BNB for gas)
-      if (bnbBalanceNumber < 0.002) {
-        const errorMsg = `Insufficient BNB for gas fees. You have ${bnbBalanceNumber.toFixed(4)} BNB but need at least 0.002 BNB for transaction fees`
-        console.log('❌ Insufficient BNB for gas:', errorMsg)
+      // Use the amount specified by user (don't limit by balance for quote calculation)
+      const desiredAmount = parseFloat(tradeAmount) || 0
+      const amountIn = desiredAmount.toString()
+      
+      // Skip quote loading if amount is 0
+      if (desiredAmount === 0) {
         setState(prev => ({
           ...prev,
-          error: errorMsg,
+          quote: null,
+          needsApproval: false,
           isLoading: false
         }))
         return
       }
-      
-      // Use reasonable amount of USDT: 1 USDT or available amount
-      const desiredAmount = 1.0 // 1 USDT for testing
-      const amountIn = Math.min(desiredAmount, balanceNumber).toString()
       
       console.log('📊 Trade calculation:', {
         usdtBalance: balanceNumber,
@@ -154,18 +178,6 @@ export function TradeExecutionModal({
         desiredAmount,
         amountIn
       })
-      
-      // Check if user has enough USDT for trade (minimum 0.1 USDT)
-      if (balanceNumber < 0.1) {
-        const errorMsg = `Insufficient USDT balance. You have ${balanceNumber.toFixed(2)} USDT but need at least 0.1 USDT for trading (plus 0.002 BNB for gas)`
-        console.log('❌ Insufficient USDT balance:', errorMsg)
-        setState(prev => ({
-          ...prev,
-          error: errorMsg,
-          isLoading: false
-        }))
-        return
-      }
 
       const swapParams: SwapParams = {
         tokenIn,
@@ -210,11 +222,9 @@ export function TradeExecutionModal({
     setState(prev => ({ ...prev, step: 'approval', isLoading: true, error: null }))
 
     try {
-      // Use dynamic amount based on calculated trade size
-      const usdtBalance = await getTokenBalance(TOKENS.USDT, address)
-      const balanceNumber = parseFloat(usdtBalance)
-      const desiredAmount = 1.0 // 1 USDT for testing
-      const amountIn = Math.min(desiredAmount, balanceNumber).toString()
+      // Use the exact amount the user wants to trade
+      const desiredAmount = parseFloat(tradeAmount) || 1.0
+      const amountIn = desiredAmount.toString()
 
       await approveToken(tokenIn, amountIn)
       
@@ -254,11 +264,9 @@ export function TradeExecutionModal({
     setState(prev => ({ ...prev, step: 'swap', isLoading: true, error: null }))
 
     try {
-      // Calculate safe amount based on current USDT balance  
-      const usdtBalance = await getTokenBalance(TOKENS.USDT, address)
-      const balanceNumber = parseFloat(usdtBalance)
-      const desiredAmount = 1.0 // 1 USDT for testing
-      const amountIn = Math.min(desiredAmount, balanceNumber).toString()
+      // Use the exact amount the user specified
+      const desiredAmount = parseFloat(tradeAmount) || 1.0
+      const amountIn = desiredAmount.toString()
       
       const swapParams: SwapParams = {
         tokenIn,
@@ -311,8 +319,8 @@ export function TradeExecutionModal({
         walletAddress: address,
         tokenPair: 'WBNB/USDT',
         entryPrice: tradeIdea.entryPrice,
-        takeProfitPrice: tradeIdea.takeProfitPrice,
-        stopLossPrice: tradeIdea.stopLossPrice,
+        takeProfitPrice: parseFloat(editableTakeProfit) || tradeIdea.takeProfitPrice,
+        stopLossPrice: parseFloat(editableStopLoss) || tradeIdea.stopLossPrice,
         tradeAmount: parseFloat(state.quote.amountOut), // Amount of WBNB received
         slippageTolerance: 2.0 // 2.0% slippage tolerance for mainnet
       }
@@ -382,16 +390,16 @@ export function TradeExecutionModal({
       id: `${address}_${Date.now()}`,
       txHash,
       symbol: 'WBNB/USDT',
-      status: automationTaskIds ? 'monitoring' : 'active',
+      status: 'active', // Live trades with real transaction hashes are always 'active'
       entryPrice: tradeIdea.entryPrice,
       currentPrice: tradeIdea.entryPrice,
-      takeProfitPrice: tradeIdea.takeProfitPrice,
-      stopLossPrice: tradeIdea.stopLossPrice,
+      takeProfitPrice: parseFloat(editableTakeProfit) || tradeIdea.takeProfitPrice,
+      stopLossPrice: parseFloat(editableStopLoss) || tradeIdea.stopLossPrice,
       confidence: tradeIdea.confidence,
       reasoning: tradeIdea.reasoning,
       createdAt: new Date().toISOString(),
-      amountIn: state.quote.amountOut, // Dynamic amount based on actual trade
-      amountOut: state.quote.amountOut,
+      amountIn: tradeAmount, // Amount of USDT spent
+      amountOut: state.quote.amountOut, // Amount of WBNB received
       tradeValue: tradeValue,
       automationTaskIds
     }
@@ -465,93 +473,279 @@ export function TradeExecutionModal({
     (window as any).createTestTrade = createTestTrade
   }
 
+  // Handle trade amount changes and update quote
+  const handleTradeAmountChange = (value: string) => {
+    setTradeAmount(value)
+    
+    // Clear current quote to show loading state immediately
+    if (state.quote && parseFloat(value) > 0) {
+      setState(prev => ({ ...prev, quote: null }))
+    }
+  }
+
+  // Validation helpers
+  const isValidTakeProfit = () => {
+    const tp = parseFloat(editableTakeProfit)
+    const entry = tradeIdea?.entryPrice || 0
+    return tp > entry
+  }
+
+  const isValidStopLoss = () => {
+    const sl = parseFloat(editableStopLoss)
+    const entry = tradeIdea?.entryPrice || 0
+    return sl < entry && sl > 0
+  }
+
+  // Balance validation for execution
+  const hasEnoughBalance = () => {
+    const balance = parseFloat(walletBalance)
+    const amount = parseFloat(tradeAmount) || 0
+    return balance >= amount && amount > 0 // Must be greater than 0
+  }
+
+  const getBalanceError = () => {
+    const balance = parseFloat(walletBalance)
+    const amount = parseFloat(tradeAmount) || 0
+    
+    if (balance < amount) return `Insufficient balance. You have ${balance.toFixed(2)} USDT`
+    return null
+  }
+
 
 
   if (!tradeIdea) return null
 
   const renderStepContent = () => {
+    // Calculate values for display
+    const expectedWbnbAmount = state.quote ? parseFloat(state.quote.amountOut) : 0
+    const tradeValueUsd = expectedWbnbAmount * (tradeIdea?.entryPrice || 0)
+    const takeProfitValue = parseFloat(editableTakeProfit) || tradeIdea?.takeProfitPrice || 0
+    const stopLossValue = parseFloat(editableStopLoss) || tradeIdea?.stopLossPrice || 0
+    const profitPotential = (takeProfitValue - (tradeIdea?.entryPrice || 0)) * expectedWbnbAmount
+    const lossRisk = ((tradeIdea?.entryPrice || 0) - stopLossValue) * expectedWbnbAmount
+
     switch (state.step) {
       case 'preview':
         return (
-          <div className="space-y-6">
-            {/* Trade Details */}
-            <div className="bg-gray-900 rounded-lg p-4 border border-gray-700">
-              <h3 className="font-semibold text-white mb-3">Trade Details</h3>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Pair:</span>
-                  <span className="font-medium text-white">WBNB/USDT</span>
+          <div className="space-y-4">
+                        {/* Trade Interface */}
+            <div className="bg-slate-800/60 rounded-xl p-6 border border-slate-600/30">              
+              {/* Main Trade Row */}
+              <div className="flex items-center justify-between mb-2">
+                {/* USDT Input Side */}
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={tradeAmount}
+                    onChange={(e) => {
+                      let value = e.target.value
+                      // Only allow numbers and one decimal point
+                      if (!/^\d*\.?\d*$/.test(value)) {
+                        return
+                      }
+                      // Limit to 4 decimal places
+                      if (value.includes('.')) {
+                        const parts = value.split('.')
+                        if (parts[1] && parts[1].length > 4) {
+                          value = parts[0] + '.' + parts[1].substring(0, 4)
+                        }
+                      }
+                      handleTradeAmountChange(value)
+                    }}
+                    className={`bg-transparent border-0 !text-xl !font-bold text-white placeholder:text-slate-500 p-0 h-auto focus-visible:ring-0 min-w-0 ${
+                      (!hasEnoughBalance() && parseFloat(tradeAmount) > 0) ? 'text-red-400' : ''
+                    }`}
+                    placeholder="0"
+                    style={{ width: `${Math.max(6, (tradeAmount.length || 1) + 2)}ch` }}
+                  />
+                  <span className="text-lg font-medium text-slate-400">USDT</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Entry Price:</span>
-                  <span className="font-medium text-white">${tradeIdea.entryPrice?.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Take Profit:</span>
-                  <span className="font-medium text-green-400">${tradeIdea.takeProfitPrice?.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Stop Loss:</span>
-                  <span className="font-medium text-red-400">${tradeIdea.stopLossPrice?.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Confidence:</span>
-                  <span className={`font-medium ${
-                    tradeIdea.confidence >= 8 ? 'text-green-400' :
-                    tradeIdea.confidence >= 6 ? 'text-yellow-400' : 'text-red-400'
-                  }`}>
-                    {tradeIdea.confidence}/10
+                
+                {/* Arrow */}
+                <ArrowRight className="h-5 w-5 text-slate-500" />
+                
+                {/* WBNB Output Side */}
+                <div className="flex items-center space-x-2">
+                  <span className="text-xl font-bold text-white">
+                    {state.quote ? expectedWbnbAmount.toFixed(4) : '0.00'}
                   </span>
+                  <span className="text-lg font-medium text-slate-400">WBNB</span>
+                </div>
+              </div>
+
+              {/* USD Values Row */}
+              <div className="flex items-center justify-between mb-4">
+                <div className="text-slate-500 text-base">
+                  ${parseFloat(tradeAmount || '0').toFixed(2)}
+                </div>
+                <div className="text-slate-500 text-base">
+                  {state.quote ? `$${tradeValueUsd.toFixed(2)}` : '$0.00'}
+                </div>
+              </div>
+
+              {/* Balance and Max Button */}
+              <div className="flex items-center space-x-2">
+                <span className="text-blue-400 text-sm">Balance: {parseFloat(walletBalance).toFixed(2)}</span>
+                <button
+                  onClick={() => {
+                    let maxAmount = walletBalance
+                    // Limit to 4 decimal places when using Max
+                    if (maxAmount.includes('.')) {
+                      const parts = maxAmount.split('.')
+                      if (parts[1] && parts[1].length > 4) {
+                        maxAmount = parts[0] + '.' + parts[1].substring(0, 4)
+                      }
+                    }
+                    setTradeAmount(maxAmount)
+                  }}
+                  className="px-2 py-0.5 bg-blue-600 hover:bg-blue-500 text-white rounded text-xs font-medium transition-colors"
+                >
+                  Max
+                </button>
+              </div>
+
+              {/* Balance validation message */}
+              {getBalanceError() && (
+                <div className="mt-3 text-sm text-red-400">
+                  {getBalanceError()}
+                </div>
+              )}
+            </div>
+
+            {/* Compact Trade Parameters */}
+            <div className="bg-slate-800/60 rounded-xl p-4 border border-slate-600/30">
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                <div>
+                  <div className="text-xs text-slate-500 mb-1">Entry Price</div>
+                  <div className="text-lg font-bold text-white">${tradeIdea?.entryPrice?.toFixed(2)}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-slate-500 mb-1">AI Confidence</div>
+                  <div className={`text-lg font-bold ${
+                    (tradeIdea?.confidence ?? 0) >= 8 ? 'text-emerald-400' :
+                    (tradeIdea?.confidence ?? 0) >= 6 ? 'text-amber-400' : 'text-red-400'
+                  }`}>
+                    {tradeIdea?.confidence}/10
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                {/* Take Profit */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs font-medium text-emerald-400 flex items-center">
+                      <TrendingUp className="h-3 w-3 mr-1" />
+                      Take Profit
+                    </label>
+                    {state.quote && profitPotential > 0 && (
+                      <span className="text-xs font-semibold text-emerald-400">
+                        +${profitPotential.toFixed(2)}
+                      </span>
+                    )}
+                  </div>
+                  <Input
+                    type="number"
+                    value={editableTakeProfit}
+                    onChange={(e) => setEditableTakeProfit(e.target.value)}
+                    className={`h-9 text-sm bg-slate-700/60 border-slate-600/50 rounded-lg ${
+                      isValidTakeProfit() 
+                        ? 'focus-visible:ring-emerald-500/50' 
+                        : 'focus-visible:ring-red-500/50'
+                    }`}
+                    placeholder="TP Price"
+                  />
+                </div>
+
+                {/* Stop Loss */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs font-medium text-red-400 flex items-center">
+                      <TrendingDown className="h-3 w-3 mr-1" />
+                      Stop Loss
+                    </label>
+                    {state.quote && lossRisk > 0 && (
+                      <span className="text-xs font-semibold text-red-400">
+                        -${lossRisk.toFixed(2)}
+                      </span>
+                    )}
+                  </div>
+                  <Input
+                    type="number"
+                    value={editableStopLoss}
+                    onChange={(e) => setEditableStopLoss(e.target.value)}
+                    className={`h-9 text-sm bg-slate-700/60 border-slate-600/50 rounded-lg ${
+                      isValidStopLoss() 
+                        ? 'focus-visible:ring-amber-500/50' 
+                        : 'focus-visible:ring-red-500/50'
+                    }`}
+                    placeholder="SL Price"
+                  />
                 </div>
               </div>
             </div>
 
-            {/* AI Reasoning */}
-            <div className="bg-gray-900 rounded-lg p-4 border border-purple-600">
-              <h3 className="font-semibold text-white mb-2">AI Analysis</h3>
-              <p className="text-sm text-gray-300">{tradeIdea.reasoning}</p>
+            {/* Compact AI Analysis */}
+            <div className="bg-purple-900/20 rounded-xl p-3 border border-purple-500/30">
+              <div className="flex items-center mb-2">
+                <Bot className="h-4 w-4 text-purple-400 mr-2" />
+                <span className="text-sm font-semibold text-purple-400">AI Analysis</span>
+              </div>
+              <div className="max-h-20 overflow-y-auto">
+                <p className="text-sm text-slate-300 leading-relaxed pr-2">{tradeIdea?.reasoning}</p>
+              </div>
             </div>
 
             {/* Error Display */}
             {state.error && (
-              <div className="bg-red-900/20 border border-red-600 rounded-lg p-4">
+              <div className="bg-red-900/20 border border-red-500/50 rounded-xl p-3">
                 <div className="flex items-center text-red-400 mb-2">
                   <AlertCircle className="h-4 w-4 mr-2" />
-                  <span className="font-medium">Error</span>
+                  <span className="text-sm font-semibold">Error</span>
                 </div>
-                <p className="text-red-300 text-sm">{state.error}</p>
+                <p className="text-sm text-red-300 mb-3">{state.error}</p>
                 <Button 
                   onClick={loadQuoteAndApproval} 
                   variant="outline" 
                   size="sm" 
-                  className="mt-3 border-red-600 text-red-400 hover:bg-red-900/30"
+                  className="border-red-500/50 text-red-400 hover:bg-red-900/30 rounded-lg text-sm font-medium"
                 >
                   Retry
                 </Button>
               </div>
             )}
 
-            {/* Action Buttons */}
+            {/* Compact Action Buttons */}
             <div className="flex space-x-3">
-              <Button variant="secondary" onClick={handleClose} className="flex-1">
+              <Button 
+                variant="outline" 
+                onClick={handleClose} 
+                className="flex-1 h-10 rounded-lg border-slate-600/50 text-slate-300 hover:bg-slate-800/50 text-sm font-semibold"
+              >
                 Cancel
               </Button>
               {state.needsApproval ? (
                 <Button 
                   onClick={handleApproval}
-                  disabled={state.isLoading}
-                  variant="outline"
-                  className="flex-1"
+                  disabled={state.isLoading || !hasEnoughBalance()}
+                  className="flex-1 h-10 rounded-lg bg-amber-500 hover:bg-amber-600 disabled:bg-slate-700 disabled:text-slate-500 text-black text-sm font-semibold"
+                  title={!hasEnoughBalance() ? (getBalanceError() || 'Insufficient balance') : undefined}
                 >
                   {state.isLoading ? <LoadingSpinner size="sm" /> : 'Approve USDT'}
                 </Button>
               ) : (
                 <Button 
                   onClick={handleExecuteSwap}
-                  disabled={state.isLoading || !state.quote}
-                  variant="default"
-                  className="flex-1"
-                  title={!state.quote ? 'Loading trade quote...' : undefined}
+                  disabled={state.isLoading || !state.quote || !isValidTakeProfit() || !isValidStopLoss() || !hasEnoughBalance()}
+                  className="flex-1 h-10 rounded-lg bg-emerald-500 hover:bg-emerald-600 disabled:bg-slate-700 disabled:text-slate-500 text-black text-sm font-semibold"
+                  title={
+                    !state.quote ? 'Loading trade quote...' : 
+                    !isValidTakeProfit() ? 'Take profit must be above entry price' :
+                    !isValidStopLoss() ? 'Stop loss must be below entry price' : 
+                    !hasEnoughBalance() ? (getBalanceError() || 'Insufficient balance') :
+                    undefined
+                  }
                 >
                   {state.isLoading ? <LoadingSpinner size="sm" /> : !state.quote ? 'Loading...' : 'Execute Trade'}
                 </Button>
@@ -562,42 +756,50 @@ export function TradeExecutionModal({
 
       case 'approval':
         return (
-          <div className="text-center space-y-4">
-            <div className="mx-auto w-12 h-12 bg-yellow-600 rounded-full flex items-center justify-center">
+          <div className="text-center space-y-4 py-6">
+            <div className="mx-auto w-12 h-12 bg-gradient-to-br from-amber-400 to-amber-600 rounded-xl flex items-center justify-center">
               <LoadingSpinner size="md" />
             </div>
             <div>
-              <h3 className="font-semibold text-white">Approving Token</h3>
-              <p className="text-gray-300 mt-1">Please confirm the approval in your wallet</p>
+              <h3 className="text-lg font-semibold text-white mb-2">Approving Token</h3>
+              <p className="text-sm text-slate-400">Please confirm the approval in your wallet</p>
             </div>
           </div>
         )
 
       case 'swap':
         return (
-          <div className="text-center space-y-4">
-            <div className="mx-auto w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center">
+          <div className="text-center space-y-4 py-6">
+            <div className="mx-auto w-12 h-12 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-xl flex items-center justify-center">
               <LoadingSpinner size="md" />
             </div>
             <div>
-              <h3 className="font-semibold text-white">Executing Trade</h3>
-              <p className="text-gray-300 mt-1">Please confirm the transaction in your wallet</p>
+              <h3 className="text-lg font-semibold text-white mb-2">Executing Trade</h3>
+              <p className="text-sm text-slate-400">Please confirm the transaction in your wallet</p>
             </div>
           </div>
         )
 
       case 'automation':
         return (
-          <div className="text-center space-y-4">
-            <div className="mx-auto w-12 h-12 bg-purple-600 rounded-full flex items-center justify-center">
+          <div className="text-center space-y-4 py-6">
+            <div className="mx-auto w-12 h-12 bg-gradient-to-br from-purple-400 to-purple-600 rounded-xl flex items-center justify-center">
               <Bot className="h-6 w-6 text-white animate-pulse" />
             </div>
             <div>
-              <h3 className="font-semibold text-white">Setting Up Automation</h3>
-              <p className="text-gray-300 mt-1">Registering Take Profit & Stop Loss with Supra Automation...</p>
-              <div className="mt-3 text-sm text-purple-400">
-                <div>🎯 Configuring Take Profit at ${tradeIdea.takeProfitPrice?.toFixed(2)}</div>
-                <div>🛡️ Setting Stop Loss at ${tradeIdea.stopLossPrice?.toFixed(2)}</div>
+              <h3 className="text-lg font-semibold text-white mb-2">Setting Up Automation</h3>
+              <p className="text-sm text-slate-400 mb-3">Registering Take Profit & Stop Loss...</p>
+              <div className="bg-slate-800/60 rounded-xl p-3 border border-slate-600/30">
+                <div className="space-y-2 text-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400">Take Profit:</span>
+                    <span className="text-emerald-400 font-semibold">${(parseFloat(editableTakeProfit) || tradeIdea?.takeProfitPrice)?.toFixed(2)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400">Stop Loss:</span>
+                    <span className="text-red-400 font-semibold">${(parseFloat(editableStopLoss) || tradeIdea?.stopLossPrice)?.toFixed(2)}</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -605,31 +807,37 @@ export function TradeExecutionModal({
 
       case 'success':
         return (
-          <div className="text-center space-y-4">
-            <div className="mx-auto w-12 h-12 bg-green-600 rounded-full flex items-center justify-center">
+          <div className="text-center space-y-4 py-6">
+            <div className="mx-auto w-12 h-12 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-xl flex items-center justify-center">
               <CheckCircle className="h-6 w-6 text-white" />
             </div>
             <div>
-              <h3 className="font-semibold text-white">Trade Executed!</h3>
-              <p className="text-gray-300 mt-1">Your trade has been successfully executed</p>
+              <h3 className="text-lg font-semibold text-white mb-2">Trade Executed!</h3>
+              <p className="text-sm text-slate-400 mb-3">Your trade has been successfully executed</p>
               
               {/* Automation Status */}
               {state.automationTaskIds ? (
-                <div className="mt-4 p-3 bg-purple-900/20 border border-purple-600 rounded-lg">
+                <div className="bg-purple-900/20 border border-purple-500/50 rounded-xl p-3 mb-3">
                   <div className="flex items-center justify-center mb-2">
                     <Bot className="h-4 w-4 text-purple-400 mr-2" />
-                    <span className="text-sm font-medium text-purple-400">Supra Automation Active</span>
+                    <span className="text-sm font-semibold text-purple-400">Automation Active</span>
                   </div>
-                  <div className="text-xs text-gray-300 space-y-1">
-                    <div>🎯 Take Profit: Task {state.automationTaskIds.takeProfitTaskId.slice(0, 8)}...</div>
-                    <div>🛡️ Stop Loss: Task {state.automationTaskIds.stopLossTaskId.slice(0, 8)}...</div>
-                    <div className="text-purple-300 mt-2">Your positions will be automatically managed!</div>
+                  <div className="text-xs text-slate-300 space-y-1">
+                    <div className="flex justify-between">
+                      <span>Take Profit:</span>
+                      <span className="text-emerald-400">Task {state.automationTaskIds?.takeProfitTaskId.slice(0, 8)}...</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Stop Loss:</span>
+                      <span className="text-red-400">Task {state.automationTaskIds?.stopLossTaskId.slice(0, 8)}...</span>
+                    </div>
                   </div>
                 </div>
               ) : state.error?.includes('automation') ? (
-                <div className="mt-4 p-3 bg-orange-900/20 border border-orange-600 rounded-lg">
-                  <div className="text-xs text-orange-300">
-                    ⚠️ Trade successful but automation setup failed
+                <div className="bg-orange-900/20 border border-orange-500/50 rounded-xl p-3 mb-3">
+                  <div className="text-sm text-orange-300 flex items-center justify-center">
+                    <AlertCircle className="h-4 w-4 mr-2" />
+                    Automation setup failed
                   </div>
                 </div>
               ) : null}
@@ -639,14 +847,17 @@ export function TradeExecutionModal({
                   href={`https://bscscan.com/tx/${state.txHash}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center text-blue-400 hover:text-blue-300 mt-2"
+                  className="inline-flex items-center text-sm text-blue-400 hover:text-blue-300 transition-colors mb-3"
                 >
                   View on BscScan
-                  <ExternalLink className="h-4 w-4 ml-1" />
+                  <ExternalLink className="h-3 w-3 ml-1" />
                 </a>
               )}
             </div>
-            <Button onClick={handleClose} variant="default" className="w-full">
+            <Button 
+              onClick={handleClose} 
+              className="w-full h-10 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-black text-sm font-semibold"
+            >
               Close
             </Button>
           </div>
@@ -654,19 +865,28 @@ export function TradeExecutionModal({
 
       case 'error':
         return (
-          <div className="text-center space-y-4">
-            <div className="mx-auto w-12 h-12 bg-red-600 rounded-full flex items-center justify-center">
+          <div className="text-center space-y-4 py-6">
+            <div className="mx-auto w-12 h-12 bg-gradient-to-br from-red-400 to-red-600 rounded-xl flex items-center justify-center">
               <AlertCircle className="h-6 w-6 text-white" />
             </div>
             <div>
-              <h3 className="font-semibold text-white">Trade Failed</h3>
-              <p className="text-red-400 mt-1">{state.error}</p>
+              <h3 className="text-lg font-semibold text-white mb-3">Trade Failed</h3>
+              <div className="bg-red-900/20 border border-red-500/50 rounded-xl p-3 mb-3">
+                <p className="text-sm text-red-300">{state.error}</p>
+              </div>
             </div>
             <div className="flex space-x-3">
-              <Button variant="secondary" onClick={handleClose} className="flex-1">
+              <Button 
+                variant="outline" 
+                onClick={handleClose} 
+                className="flex-1 h-10 rounded-lg border-slate-600/50 text-slate-300 hover:bg-slate-800/50 text-sm font-semibold"
+              >
                 Close
               </Button>
-              <Button onClick={loadQuoteAndApproval} variant="default" className="flex-1">
+              <Button 
+                onClick={loadQuoteAndApproval} 
+                className="flex-1 h-10 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-black text-sm font-semibold"
+              >
                 Try Again
               </Button>
             </div>
@@ -683,7 +903,7 @@ export function TradeExecutionModal({
       isOpen={isOpen}
       onClose={handleClose}
       title="Execute Trade"
-      className="max-w-md"
+      className="max-w-lg"
     >
       {state.isLoading && state.step === 'preview' ? (
         <div className="flex justify-center py-8">

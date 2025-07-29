@@ -1,12 +1,12 @@
 #!/bin/bash
 
-# Docker build script for bnb-tcp
+# Docker build script for DeFi Trading Copilot
 # Usage: ./scripts/docker-build.sh [tag_name]
 
 set -e
 
 # Default tag name
-TAG_NAME=${1:-bnb-tcp:latest}
+TAG_NAME=${1:-defi-trading-copilot:latest}
 
 # Colors for output
 RED='\033[0;31m'
@@ -16,9 +16,9 @@ NC='\033[0m' # No Color
 
 echo -e "${YELLOW}🐳 Building Docker image: $TAG_NAME${NC}"
 
-echo -e "${GREEN}✅ Building without environment variables - configuration handled in frontend${NC}"
+echo -e "${GREEN}✅ Building with runtime configuration support${NC}"
 
-# Build Docker image without build-time environment variables
+# Build Docker image
 echo -e "${YELLOW}🔨 Starting Docker build...${NC}"
 
 docker build -t "$TAG_NAME" .
@@ -32,7 +32,9 @@ if [ $? -eq 0 ]; then
     echo "   docker run -p 3000:80 $TAG_NAME"
     echo ""
     echo -e "${YELLOW}🐳 Or use docker-compose:${NC}"
-    echo "   docker-compose up --build"
+    echo "   docker-compose up"
+    echo ""
+    echo -e "${YELLOW}⚙️  Configure the app at: http://localhost:3000${NC}"
 else
     echo -e "${RED}❌ Docker build failed${NC}"
     exit 1

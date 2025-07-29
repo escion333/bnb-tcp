@@ -15,13 +15,25 @@ export interface TradeIdea {
 
 export async function generateTradeIdea(
   symbol: string = 'WBNB/USDT',
-  currentPrice: number = 635.50
+  currentPrice: number = 832.21
 ): Promise<TradeIdea> {
   const config = getUserConfig()
   const OPENAI_API_KEY = config.ai.openaiApiKey
   
+  console.log('🤖 OpenAI Trade Idea Generation:')
+  console.log('🔑 API Key available:', !!OPENAI_API_KEY)
+  console.log('🔑 API Key length:', OPENAI_API_KEY?.length || 0)
+  console.log('🔑 API Key starts with sk-:', OPENAI_API_KEY?.startsWith('sk-') || false)
+  console.log('📊 Symbol:', symbol, 'Price:', currentPrice)
+  
   if (!OPENAI_API_KEY) {
+    console.error('❌ OpenAI API key not found in configuration')
     throw new Error('OpenAI API key not configured - please set it up in Settings')
+  }
+  
+  if (!OPENAI_API_KEY.startsWith('sk-')) {
+    console.error('❌ Invalid OpenAI API key format')
+    throw new Error('Invalid OpenAI API key format - key should start with "sk-"')
   }
 
   const prompt = `You are a professional DeFi trader analyzing ${symbol} at current price $${currentPrice}.
@@ -52,6 +64,8 @@ Respond ONLY with valid JSON in this exact format:
 }`
 
   try {
+    console.log('🌐 Making request to OpenAI API...')
+    
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -75,12 +89,19 @@ Respond ONLY with valid JSON in this exact format:
       })
     })
 
+    console.log('📡 OpenAI Response status:', response.status)
+    
     if (!response.ok) {
-      throw new Error(`OpenAI API error: ${response.status}`)
+      const errorText = await response.text()
+      console.error('❌ OpenAI API error response:', errorText)
+      throw new Error(`OpenAI API error: ${response.status} - ${errorText}`)
     }
 
     const data = await response.json()
     const content = data.choices[0]?.message?.content
+
+    console.log('✅ OpenAI API response received')
+    console.log('📝 Raw content:', content)
 
     if (!content) {
       throw new Error('No response from OpenAI')
@@ -88,6 +109,7 @@ Respond ONLY with valid JSON in this exact format:
 
     // Parse the JSON response
     const tradeData = JSON.parse(content.trim())
+    console.log('📊 Parsed trade data:', tradeData)
 
     // Construct full trade idea
     const tradeIdea: TradeIdea = {
@@ -103,20 +125,21 @@ Respond ONLY with valid JSON in this exact format:
       timestamp: new Date().toISOString()
     }
 
+    console.log('🎯 Generated trade idea:', tradeIdea)
     return tradeIdea
 
   } catch (error) {
     console.error('Error generating trade idea:', error)
     
-    // Fallback mock data for development
+    // Fallback trade idea when OpenAI API is unavailable
     return {
       symbol,
       currentPrice,
       entryPrice: currentPrice * 0.998, // Slight dip entry
       takeProfitPrice: currentPrice * 1.08, // 8% profit
       stopLossPrice: currentPrice * 0.95, // 5% stop loss
-      reasoning: "Mock trade idea - OpenAI API temporarily unavailable. This would normally contain AI analysis of market conditions, technical indicators, and strategic reasoning.",
-      confidence: 6,
+      reasoning: "AI analysis temporarily unavailable - this is a conservative trade suggestion based on technical levels. Please verify market conditions before trading.",
+      confidence: 5,
       timeframe: "2-4 hours",
       riskReward: 1.6,
       timestamp: new Date().toISOString()
